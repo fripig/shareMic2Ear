@@ -203,6 +203,16 @@ button.ghost{padding:5px 9px;font-size:.75rem;font-weight:400}
   white-space:nowrap;
 }
 
+details.diag{
+  margin-top:20px;border:1px solid var(--border);border-radius:8px;background:var(--surface);
+}
+details.diag summary{cursor:pointer;padding:10px 14px;font-size:.78rem;color:var(--muted)}
+details.diag summary:hover{color:var(--text)}
+details.diag pre{
+  margin:0;padding:0 14px 12px;font-family:var(--mono);font-size:.7rem;line-height:1.7;
+  color:var(--text);white-space:pre-wrap;word-break:break-all;
+}
+
 footer{color:var(--muted);font-size:.78rem;line-height:1.7;margin-top:28px}
 footer ul{padding-left:1.15em;margin:8px 0 0}
 footer li{margin-bottom:5px}
@@ -252,7 +262,7 @@ a{color:var(--accent)}
 <!-- 步驟 3：輸出 -->
 <section id="outSec" hidden>
   <h2>步驟 3 · 輸出</h2>
-  <label class="field">
+  <label class="field" id="outField">
     <span class="field-label"><span>耳機／喇叭</span><span class="hint" id="outMode"></span></span>
     <select id="outSel"></select>
   </label>
@@ -341,6 +351,11 @@ a{color:var(--accent)}
   </ul>
 </footer>
 
+<details class="diag">
+  <summary>診斷資訊（回報問題時請附上）</summary>
+  <pre id="diagBody">—</pre>
+</details>
+
 </div>
 
 <script>
@@ -353,7 +368,8 @@ const el = {
   btnPerm:$("btnPerm"), btnRefresh:$("btnRefresh"), btnToggle:$("btnToggle"),
   btnAll:$("btnAll"), btnNone:$("btnNone"),
   micList:$("micList"), multiNote:$("multiNote"),
-  outSel:$("outSel"), outMode:$("outMode"), outNote:$("outNote"),
+  outSel:$("outSel"), outMode:$("outMode"), outNote:$("outNote"), outField:$("outField"),
+  diagBody:$("diagBody"),
   vol:$("vol"), volVal:$("volVal"), mute:$("mute"), comp:$("comp"), lowNote:$("lowNote"),
   meterFill:$("meterFill"), meterPeak:$("meterPeak"), dbVal:$("dbVal"),
   stMics:$("stMics"), stRate:$("stRate"), stLat:$("stLat"),
@@ -372,6 +388,16 @@ const has = {
 };
 // 決定輸出路徑：ctx（低延遲）> element（可用但較高延遲）> none（無法選擇）
 const sinkMode = has.ctxSink ? "ctx" : (has.elSink ? "element" : "none");
+
+// 只用於把「為什麼不能選輸出」講對，不拿來決定功能走哪條路徑
+const ua = navigator.userAgent;
+const plat = {
+  android: /Android/i.test(ua),
+  ios: /iPad|iPhone|iPod/.test(ua) ||
+       (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1),
+  safari: /Safari/i.test(ua) && !/Chrome|Chromium|Edg|OPR/i.test(ua),
+};
+let outCount = 0;
 
 // ---- 狀態 --------------------------------------------------------------
 // mics: deviceId -> { stream, src, gain, analyser, buf, vol, muted, row }
@@ -418,7 +444,6 @@ el.btnPerm.addEventListener("click", async () => {
     el.permSec.hidden = true;
     el.inSec.hidden = el.outSec.hidden = el.monSec.hidden = el.advSec.hidden = false;
     setStatus("待命");
-    describeSink();
     await refreshDevices(true);
 
     navigator.mediaDevices.addEventListener("devicechange", () => refreshDevices(false));
@@ -459,12 +484,12 @@ async function refreshDevices(firstRun) {
 
   renderMics(ins);
 
-  if (sinkMode === "none") {
-    el.outSel.innerHTML = "<option>系統預設輸出（無法指定）</option>";
-    el.outSel.disabled = true;
-  } else {
-    fillOutputs(list.filter(d => d.kind === "audiooutput"));
-  }
+  const outs = list.filter(d => d.kind === "audiooutput");
+  outCount = outs.length;
+  if (sinkMode !== "none" && outs.length) fillOutputs(outs);
+
+  describeSink();
+  updateDiag();
 }
 
 function renderMics(devices) {
@@ -623,19 +648,74 @@ function setAll(on) {
 }
 
 function describeSink() {
-  if (sinkMode === "ctx") {
-    el.outMode.textContent = "低延遲";
-  } else if (sinkMode === "element") {
-    el.outMode.textContent = "相容模式";
-    el.outNote.hidden = false;
-    el.outNote.className = "note";
-    el.outNote.innerHTML = "這個瀏覽器不支援直接切換音訊輸出，改走 <code>&lt;audio&gt;</code> 元素轉送。功能正常，但會多出約 20–100 ms 延遲。";
-  } else {
-    el.outMode.textContent = "不支援";
-    el.outNote.hidden = false;
-    el.outNote.className = "note warn";
-    el.outNote.innerHTML = "<b>這個瀏覽器無法選擇輸出裝置</b>（Safari 與 iOS 皆不支援 <code>setSinkId</code>）。聲音只會送到系統目前的預設輸出，請直接到系統設定切換耳機。";
+  el.outNote.hidden = true;
+  el.outField.hidden = false;
+
+  // 能選，而且真的有裝置可選
+  if (sinkMode !== "none" && outCount) {
+    if (sinkMode === "ctx") {
+      el.outMode.textContent = "低延遲";
+    } else {
+      el.outMode.textContent = "相容模式";
+      show("note", "這個瀏覽器不支援直接切換音訊輸出，改走 <code>&lt;audio&gt;</code> 元素轉送。功能正常，但會多出約 20-100 ms 延遲。");
+    }
+    return;
   }
+
+  // 到這裡就是選不了，把下拉收起來，改成說明為什麼、以及該去哪裡切換
+  el.outField.hidden = true;
+
+  if (plat.android) {
+    show("warn",
+      "<b>Android 版 Chrome 不支援由網頁選擇輸出裝置</b>（<code>setSinkId</code> 只在桌面版提供），"
+      + "聲音會送到系統目前的媒體輸出。要改用藍牙耳機：先在系統設定連上耳機，"
+      + "再從通知列下拉，點媒體通知右上角的<b>輸出／投放圖示</b>切換。<br><br>"
+      + "另外請注意，Android 在網頁使用麥克風時會把音訊視為<b>通訊用途</b>，"
+      + "藍牙耳機會走 HFP 模式（音質降低），也可能被強制路由到聽筒或喇叭。"
+      + "若聽到嘯叫，代表聲音走了喇叭，請調低音量並確認耳機已接上。");
+  } else if (plat.ios) {
+    show("warn",
+      "<b>iOS 不支援由網頁選擇輸出裝置</b>，聲音只會送到系統目前的輸出。"
+      + "請從控制中心的音訊卡片切換到你的藍牙耳機。");
+  } else if (plat.safari) {
+    show("warn",
+      "<b>Safari 不支援 <code>setSinkId</code></b>，無法由網頁指定輸出裝置。"
+      + "聲音會送到系統預設輸出，請到系統設定切換耳機，或改用 Chrome / Edge。");
+  } else if (sinkMode === "none") {
+    show("warn",
+      "<b>這個瀏覽器不支援 <code>setSinkId</code></b>，無法由網頁指定輸出裝置。"
+      + "聲音會送到系統預設輸出，請到系統設定切換耳機。");
+  } else {
+    // 支援 API 卻列不出裝置，行動裝置與部分權限設定下會這樣
+    show("warn",
+      "<b>瀏覽器支援切換輸出，但沒有列出任何輸出裝置。</b>"
+      + "行動裝置通常不開放這項資訊。聲音會送到系統目前的輸出，請從系統層切換耳機。");
+  }
+
+  el.outMode.textContent = "不支援";
+
+  function show(kind, html) {
+    el.outNote.hidden = false;
+    el.outNote.className = "note" + (kind === "warn" ? " warn" : "");
+    el.outNote.innerHTML = html;
+  }
+}
+
+function updateDiag() {
+  const tags = (plat.android ? "Android " : "") + (plat.ios ? "iOS " : "") +
+               (plat.safari ? "Safari " : "");
+  const lines = [
+    "頁面        " + location.href,
+    "安全連線    " + window.isSecureContext,
+    "輸出路徑    " + sinkMode,
+    "  AudioContext.setSinkId       " + has.ctxSink,
+    "  HTMLMediaElement.setSinkId   " + has.elSink,
+    "偵測平台    " + (tags.trim() || "桌面／其他"),
+    "裝置數      輸入 " + rows.size + " ／ 輸出 " + outCount,
+    "取樣率      " + (ctx ? ctx.sampleRate + " Hz" : "（尚未啟動）"),
+    "UA          " + ua,
+  ];
+  el.diagBody.textContent = lines.join("\n");
 }
 
 // ---- 監聽開關 ----------------------------------------------------------
@@ -804,7 +884,7 @@ async function stop() {
 
 // 依偵測到的能力把總線接到實際輸出
 async function routeOutput() {
-  const outId = el.outSel.disabled ? "" : el.outSel.value;
+  const outId = el.outField.hidden ? "" : el.outSel.value;
 
   if (sinkMode === "ctx") {
     if (outId) {
@@ -943,6 +1023,7 @@ function startStats() {
   const update = () => {
     if (!ctx) return;
     checkLevel();
+    updateDiag();
     el.stMics.textContent = mics.size + " 支";
     el.stRate.textContent = (ctx.sampleRate / 1000).toFixed(1) + " kHz";
 
