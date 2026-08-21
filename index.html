@@ -271,18 +271,26 @@ a{color:var(--accent)}
 
   <label class="field" style="margin-top:16px">
     <span class="field-label"><span>總音量</span><span class="hint" id="volVal">100%</span></span>
-    <input type="range" id="vol" min="0" max="200" step="1" value="100">
+    <input type="range" id="vol" min="0" max="400" step="1" value="100">
   </label>
 
-  <label class="check" style="margin-top:2px">
-    <input type="checkbox" id="mute">
-    <span class="t">全部靜音</span>
-  </label>
+  <div class="checks" style="margin-top:2px">
+    <label class="check">
+      <input type="checkbox" id="mute">
+      <span class="t">全部靜音</span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="comp">
+      <span class="t">人聲增強 <span class="tag">壓縮 + 8 dB</span>
+        <span class="d">壓低突然的尖峰、把安靜的部分推上來，整體聽起來明顯更大聲。即時生效，不需重新啟動。</span></span>
+    </label>
+  </div>
 
   <div style="margin-top:16px">
     <div class="field-label"><span style="font-size:.85rem">混音輸出</span><span class="hint" id="dbVal">—</span></div>
     <div class="meter"><div class="meter-fill" id="meterFill"></div><div class="meter-peak" id="meterPeak"></div></div>
     <div class="meter-scale"><span>-60</span><span>-40</span><span>-20</span><span>-6</span><span>0 dB</span></div>
+    <div class="note warn" id="lowNote" hidden style="margin-top:10px"></div>
   </div>
 
   <dl class="stats">
@@ -346,7 +354,7 @@ const el = {
   btnAll:$("btnAll"), btnNone:$("btnNone"),
   micList:$("micList"), multiNote:$("multiNote"),
   outSel:$("outSel"), outMode:$("outMode"), outNote:$("outNote"),
-  vol:$("vol"), volVal:$("volVal"), mute:$("mute"),
+  vol:$("vol"), volVal:$("volVal"), mute:$("mute"), comp:$("comp"), lowNote:$("lowNote"),
   meterFill:$("meterFill"), meterPeak:$("meterPeak"), dbVal:$("dbVal"),
   stMics:$("stMics"), stRate:$("stRate"), stLat:$("stLat"),
   ec:$("ec"), ns:$("ns"), agc:$("agc"),
@@ -374,8 +382,11 @@ const selected = new Set();
 let rows = new Map(); // deviceId -> DOM 元素集合
 
 let ctx = null, masterGain = null, masterAnalyser = null, masterBuf = null;
+let outBus = null, compNode = null, makeupNode = null;
 let mediaDest = null, audioEl = null, rafId = null, statTimer = null;
 let running = false, peakHold = 0, peakAt = 0;
+// 滾動視窗內的最大電平，用來判斷輸入是不是一直太小聲
+let winMax = -99, winStart = 0;
 
 function setStatus(text, live) {
   el.statusText.textContent = text;
@@ -506,7 +517,7 @@ function renderMics(devices) {
 
     const vol = document.createElement("input");
     vol.type = "range";
-    vol.min = 0; vol.max = 200; vol.step = 1;
+    vol.min = 0; vol.max = 400; vol.step = 1;
     vol.value = live ? Math.round(live.vol * 100) : 100;
     vol.setAttribute("aria-label", "此麥克風的音量");
 
@@ -645,11 +656,32 @@ async function start() {
     masterGain = ctx.createGain();
     masterGain.gain.value = masterTarget();
 
+    // 壓縮器常駐建立，靠改接線來旁通，這樣切換時不必重建音訊圖
+    compNode = ctx.createDynamicsCompressor();
+    compNode.threshold.value = -30;  // 人聲監聽用的設定：早一點開始壓
+    compNode.knee.value = 24;
+    compNode.ratio.value = 8;
+    compNode.attack.value = 0.004;
+    compNode.release.value = 0.22;
+
+    // 壓縮會讓整體變小聲，補回 +8 dB 才聽得出「變大聲」
+    makeupNode = ctx.createGain();
+    makeupNode.gain.value = Math.pow(10, 8 / 20);
+    compNode.connect(makeupNode);
+
+    // 所有訊號在這裡匯合，量測與輸出都接在它後面
+    outBus = ctx.createGain();
+    rewireComp();
+
     masterAnalyser = ctx.createAnalyser();
     masterAnalyser.fftSize = 2048;
     masterAnalyser.smoothingTimeConstant = 0;
     masterBuf = new Float32Array(masterAnalyser.fftSize);
-    masterGain.connect(masterAnalyser); // 旁路量測，不影響主路徑延遲
+    outBus.connect(masterAnalyser); // 旁路量測，不影響主路徑延遲
+
+    winMax = -99;
+    winStart = performance.now();
+    el.lowNote.hidden = true;
 
     await routeOutput();
 
@@ -759,8 +791,8 @@ async function stop() {
   for (const id of [...mics.keys()]) removeMic(id);
 
   if (audioEl) { audioEl.pause(); audioEl.srcObject = null; audioEl = null; }
-  [masterGain, masterAnalyser, mediaDest].forEach(n => { try { n && n.disconnect(); } catch (_) {} });
-  masterGain = masterAnalyser = mediaDest = masterBuf = null;
+  [masterGain, compNode, makeupNode, outBus, masterAnalyser, mediaDest].forEach(n => { try { n && n.disconnect(); } catch (_) {} });
+  masterGain = compNode = makeupNode = outBus = masterAnalyser = mediaDest = masterBuf = null;
 
   if (ctx) { try { await ctx.close(); } catch (_) {} ctx = null; }
 
@@ -779,13 +811,13 @@ async function routeOutput() {
       try { await ctx.setSinkId(outId); }
       catch (e) { console.warn("AudioContext.setSinkId 失敗，改用預設輸出", e); }
     }
-    masterGain.connect(ctx.destination);
+    outBus.connect(ctx.destination);
     return;
   }
 
   if (sinkMode === "element") {
     mediaDest = ctx.createMediaStreamDestination();
-    masterGain.connect(mediaDest);
+    outBus.connect(mediaDest);
     audioEl = new Audio();
     audioEl.srcObject = mediaDest.stream;
     if (outId) {
@@ -796,7 +828,7 @@ async function routeOutput() {
     return;
   }
 
-  masterGain.connect(ctx.destination);
+  outBus.connect(ctx.destination);
 }
 
 // ---- 音量 --------------------------------------------------------------
@@ -815,6 +847,20 @@ el.vol.addEventListener("input", () => {
 el.mute.addEventListener("change", () => {
   if (masterGain && ctx) masterGain.gain.setTargetAtTime(masterTarget(), ctx.currentTime, 0.02);
 });
+
+// 在 masterGain 與 outBus 之間切換「直通」或「經過壓縮器」
+function rewireComp() {
+  if (!masterGain || !outBus) return;
+  try { masterGain.disconnect(); } catch (_) {}
+  try { makeupNode.disconnect(); } catch (_) {}
+  if (el.comp.checked) {
+    masterGain.connect(compNode);
+    makeupNode.connect(outBus);
+  } else {
+    masterGain.connect(outBus);
+  }
+}
+el.comp.addEventListener("change", rewireComp);
 
 // 切換輸出裝置時即時套用，不需要重啟
 el.outSel.addEventListener("change", async () => {
@@ -855,6 +901,7 @@ function startMeter() {
     const db = rmsDbOf(masterAnalyser, masterBuf);
     el.meterFill.style.clipPath = "inset(0 " + (100 - dbToPct(db)) + "% 0 0)";
 
+    if (db > winMax) winMax = db;
     if (db >= peakHold || now - peakAt > PEAK_HOLD_MS) { peakHold = db; peakAt = now; }
     el.meterPeak.style.left = dbToPct(peakHold) + "%";
     el.dbVal.textContent = db <= -59 ? "—" : db.toFixed(1) + " dB";
@@ -868,15 +915,34 @@ function resetMeters() {
   el.meterFill.style.clipPath = "inset(0 100% 0 0)";
   el.meterPeak.style.left = "0%";
   el.dbVal.textContent = "—";
+  el.lowNote.hidden = true;
   el.stMics.textContent = el.stRate.textContent = el.stLat.textContent = "—";
   for (const [, r] of rows) r.fill.style.clipPath = "inset(0 100% 0 0)";
   peakHold = 0;
 }
 
 // ---- 統計 --------------------------------------------------------------
+// 每個視窗結束時回顧最大電平，太低就主動說明怎麼補救
+const LOW_WINDOW_MS = 8000;
+function checkLevel() {
+  if (performance.now() - winStart < LOW_WINDOW_MS) return;
+  const max = winMax;
+  winMax = -99;
+  winStart = performance.now();
+
+  if (!mics.size || max >= -35) { el.lowNote.hidden = true; return; }
+
+  el.lowNote.hidden = false;
+  el.lowNote.innerHTML = max < -55
+    ? "<b>幾乎沒有收到聲音。</b>確認麥克風沒有被系統靜音、實體開關沒關，並檢查系統設定裡該裝置的輸入音量。"
+    : "<b>輸入電平偏低。</b>依序試試：勾選上面的「人聲增強」、把總音量往右拉、"
+      + "到「音訊處理」開啟<b>自動增益</b>後重新啟動監聽，或直接調高系統設定裡的麥克風輸入音量。";
+}
+
 function startStats() {
   const update = () => {
     if (!ctx) return;
+    checkLevel();
     el.stMics.textContent = mics.size + " 支";
     el.stRate.textContent = (ctx.sampleRate / 1000).toFixed(1) + " kHz";
 
