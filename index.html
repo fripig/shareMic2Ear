@@ -1,0 +1,649 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>shareMic2Ear — 麥克風即時監聽</title>
+<meta name="description" content="在瀏覽器裡把麥克風即時導到指定的音訊輸出裝置，適合藍牙耳機監聽。">
+<style>
+:root{
+  color-scheme: dark;
+  --bg:#0e1116;
+  --surface:#161b22;
+  --surface-2:#1c2430;
+  --border:#2a3441;
+  --border-strong:#3a4757;
+  --text:#e6edf3;
+  --muted:#8b98a9;
+  --accent:#3ddc97;
+  --accent-ink:#0e1116;
+  --accent-dim:#1f5c45;
+  --danger:#f2555a;
+  --warn:#f0b429;
+  --radius:10px;
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: light){
+  :root{
+    color-scheme: light;
+    --bg:#f4f6f9;
+    --surface:#ffffff;
+    --surface-2:#eef1f5;
+    --border:#dbe1e9;
+    --border-strong:#c3ccd8;
+    --text:#141a21;
+    --muted:#5b6675;
+    --accent:#0f9d63;
+    --accent-ink:#ffffff;
+    --accent-dim:#b8e7d3;
+    --danger:#c62b30;
+    --warn:#9a6a00;
+  }
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--bg);
+  color:var(--text);
+  font-family:system-ui,-apple-system,"Segoe UI","Noto Sans TC","PingFang TC",sans-serif;
+  font-size:15px;
+  line-height:1.6;
+  padding:24px 16px 64px;
+}
+.wrap{max-width:640px;margin:0 auto}
+
+header{display:flex;align-items:baseline;gap:12px;flex-wrap:wrap;margin-bottom:4px}
+h1{font-size:1.35rem;margin:0;letter-spacing:-.01em}
+.sub{color:var(--muted);font-size:.875rem;margin:0 0 24px}
+
+.status{
+  display:inline-flex;align-items:center;gap:7px;
+  font-size:.8rem;color:var(--muted);
+  border:1px solid var(--border);border-radius:99px;
+  padding:3px 11px 3px 9px;
+}
+.dot{width:8px;height:8px;border-radius:50%;background:var(--border-strong);flex:none}
+.status.live .dot{background:var(--accent);box-shadow:0 0 0 0 var(--accent);animation:pulse 1.8s ease-out infinite}
+.status.live{color:var(--accent);border-color:var(--accent-dim)}
+@keyframes pulse{to{box-shadow:0 0 0 7px transparent}}
+@media (prefers-reduced-motion:reduce){.status.live .dot{animation:none}}
+
+section{
+  background:var(--surface);
+  border:1px solid var(--border);
+  border-radius:var(--radius);
+  padding:18px;
+  margin-bottom:14px;
+}
+h2{
+  font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;
+  color:var(--muted);margin:0 0 14px;
+}
+
+label.field{display:block;margin-bottom:14px}
+label.field:last-child{margin-bottom:0}
+.field-label{display:flex;justify-content:space-between;align-items:baseline;gap:8px;margin-bottom:6px;font-size:.85rem}
+.field-label .hint{color:var(--muted);font-size:.75rem;font-family:var(--mono)}
+
+select,input[type=range]{width:100%;font:inherit}
+select{
+  background:var(--surface-2);color:var(--text);
+  border:1px solid var(--border-strong);border-radius:8px;
+  padding:9px 10px;appearance:none;
+  background-image:linear-gradient(45deg,transparent 50%,var(--muted) 50%),linear-gradient(135deg,var(--muted) 50%,transparent 50%);
+  background-position:calc(100% - 17px) 50%,calc(100% - 12px) 50%;
+  background-size:5px 5px,5px 5px;background-repeat:no-repeat;
+  padding-right:34px;
+}
+select:disabled{opacity:.5;cursor:not-allowed}
+select:focus-visible,button:focus-visible,input:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+input[type=range]{
+  appearance:none;height:26px;background:transparent;cursor:pointer;margin:0;
+}
+input[type=range]::-webkit-slider-runnable-track{height:5px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border)}
+input[type=range]::-webkit-slider-thumb{appearance:none;width:17px;height:17px;border-radius:50%;background:var(--accent);margin-top:-7px;border:none}
+input[type=range]::-moz-range-track{height:5px;border-radius:99px;background:var(--surface-2);border:1px solid var(--border)}
+input[type=range]::-moz-range-thumb{width:17px;height:17px;border-radius:50%;background:var(--accent);border:none}
+
+button{
+  font:inherit;cursor:pointer;border-radius:8px;
+  border:1px solid var(--border-strong);background:var(--surface-2);color:var(--text);
+  padding:9px 14px;transition:background .12s,border-color .12s;
+}
+button:hover:not(:disabled){border-color:var(--muted)}
+button:disabled{opacity:.45;cursor:not-allowed}
+button.primary{
+  background:var(--accent);color:var(--accent-ink);border-color:var(--accent);
+  font-weight:600;width:100%;padding:13px;font-size:1rem;
+}
+button.primary.stop{background:var(--danger);border-color:var(--danger);color:#fff}
+button.ghost{padding:6px 10px;font-size:.8rem}
+
+.row{display:flex;gap:8px;align-items:flex-end}
+.row > label.field{flex:1;margin-bottom:0}
+
+/* 音量表 */
+.meter-wrap{margin-top:2px}
+.meter{
+  position:relative;height:12px;border-radius:99px;overflow:hidden;
+  background:var(--surface-2);border:1px solid var(--border);
+}
+/* 漸層鋪滿整條軌道再用 clip-path 裁切，讓顏色對應真實 dB 位置而不是隨長度縮放 */
+.meter-fill{
+  position:absolute;inset:0;
+  background:linear-gradient(90deg,var(--accent) 0%,var(--accent) 62%,var(--warn) 84%,var(--danger) 100%);
+  clip-path:inset(0 100% 0 0);
+  transition:clip-path .05s linear;
+}
+.meter-peak{
+  position:absolute;top:0;bottom:0;width:2px;left:0;background:var(--text);opacity:.75;
+  transition:left .08s linear;
+}
+.meter-scale{
+  display:flex;justify-content:space-between;
+  font-family:var(--mono);font-size:.65rem;color:var(--muted);margin-top:4px;
+}
+
+.stats{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(96px,1fr));gap:1px;
+  background:var(--border);border:1px solid var(--border);border-radius:8px;overflow:hidden;
+  margin-top:14px;
+}
+.stat{background:var(--surface);padding:9px 11px}
+.stat dt{font-size:.68rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin:0}
+.stat dd{margin:2px 0 0;font-family:var(--mono);font-size:.9rem;font-variant-numeric:tabular-nums}
+
+.checks{display:grid;gap:10px}
+.check{display:flex;gap:10px;align-items:flex-start;cursor:pointer}
+.check input{margin:4px 0 0;flex:none;accent-color:var(--accent);width:15px;height:15px}
+.check .t{font-size:.85rem}
+.check .d{display:block;color:var(--muted);font-size:.75rem;line-height:1.45}
+
+.note{
+  border-radius:8px;padding:10px 12px;font-size:.8rem;line-height:1.55;
+  border:1px solid var(--border);background:var(--surface-2);color:var(--muted);
+}
+.note + .note{margin-top:8px}
+.note.warn{border-color:color-mix(in srgb,var(--warn) 40%,var(--border));background:color-mix(in srgb,var(--warn) 8%,var(--surface));color:var(--text)}
+.note.err{border-color:color-mix(in srgb,var(--danger) 45%,var(--border));background:color-mix(in srgb,var(--danger) 8%,var(--surface));color:var(--text)}
+.note b{color:var(--text)}
+.note[hidden]{display:none}
+
+.tag{
+  font-size:.65rem;font-family:var(--mono);padding:1px 5px;border-radius:4px;
+  border:1px solid var(--border-strong);color:var(--muted);vertical-align:1px;
+}
+
+footer{color:var(--muted);font-size:.78rem;line-height:1.7;margin-top:28px}
+footer ul{padding-left:1.15em;margin:8px 0 0}
+footer li{margin-bottom:5px}
+footer code{font-family:var(--mono);font-size:.95em;background:var(--surface-2);padding:1px 4px;border-radius:4px;border:1px solid var(--border)}
+a{color:var(--accent)}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>shareMic2Ear</h1>
+  <span class="status" id="status"><span class="dot"></span><span id="statusText">未啟動</span></span>
+</header>
+<p class="sub">把麥克風即時導到指定的音訊輸出裝置。</p>
+
+<div class="note err" id="fatal" hidden></div>
+
+<!-- 步驟 1：權限 -->
+<section id="permSec">
+  <h2>步驟 1 · 麥克風權限</h2>
+  <p class="note" style="margin-bottom:12px">
+    瀏覽器在授權前不會透露裝置名稱，所有裝置都會顯示成空白。請先授權，才能看到藍牙耳機等裝置的名字。
+  </p>
+  <button class="primary" id="btnPerm">允許使用麥克風</button>
+</section>
+
+<!-- 步驟 2：裝置 -->
+<section id="devSec" hidden>
+  <h2>步驟 2 · 裝置</h2>
+
+  <div class="row" style="margin-bottom:14px">
+    <label class="field">
+      <span class="field-label"><span>輸入（麥克風）</span><span class="hint" id="inCount"></span></span>
+      <select id="inSel"></select>
+    </label>
+    <button class="ghost" id="btnRefresh" title="重新掃描裝置">重新掃描</button>
+  </div>
+
+  <label class="field">
+    <span class="field-label"><span>輸出（耳機／喇叭）</span><span class="hint" id="outMode"></span></span>
+    <select id="outSel"></select>
+  </label>
+
+  <div class="note" id="outNote" hidden style="margin-top:12px"></div>
+</section>
+
+<!-- 步驟 3：監聽 -->
+<section id="monSec" hidden>
+  <h2>步驟 3 · 監聽</h2>
+
+  <div class="note warn" style="margin-bottom:14px">
+    <b>先戴上耳機再開始。</b>用喇叭播放會讓麥克風收到自己的聲音，形成回授嘯叫。
+  </div>
+
+  <button class="primary" id="btnToggle">開始監聽</button>
+
+  <label class="field" style="margin-top:16px">
+    <span class="field-label"><span>音量</span><span class="hint" id="volVal">100%</span></span>
+    <input type="range" id="vol" min="0" max="200" step="1" value="100">
+  </label>
+
+  <label class="check" style="margin-top:2px">
+    <input type="checkbox" id="mute">
+    <span class="t">靜音</span>
+  </label>
+
+  <div class="meter-wrap" style="margin-top:16px">
+    <div class="field-label"><span style="font-size:.85rem">輸入音量</span><span class="hint" id="dbVal">—</span></div>
+    <div class="meter"><div class="meter-fill" id="meterFill"></div><div class="meter-peak" id="meterPeak"></div></div>
+    <div class="meter-scale"><span>-60</span><span>-40</span><span>-20</span><span>-6</span><span>0 dB</span></div>
+  </div>
+
+  <dl class="stats">
+    <div class="stat"><dt>取樣率</dt><dd id="stRate">—</dd></div>
+    <div class="stat"><dt>聲道</dt><dd id="stCh">—</dd></div>
+    <div class="stat"><dt>估計延遲</dt><dd id="stLat">—</dd></div>
+  </dl>
+</section>
+
+<!-- 進階 -->
+<section id="advSec" hidden>
+  <h2>音訊處理</h2>
+  <p class="note" style="margin-bottom:14px">
+    這三項預設<b>全部關閉</b>。它們是為了通話設計的：回音消除會把你自己的聲音判定成回音而削掉，做監聽時反而礙事。改動後需要重新啟動監聽才會生效。
+  </p>
+  <div class="checks">
+    <label class="check">
+      <input type="checkbox" id="ec">
+      <span class="t">回音消除 <span class="tag">echoCancellation</span>
+        <span class="d">只有在必須用喇叭外放時才開。會增加延遲。</span></span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="ns">
+      <span class="t">雜訊抑制 <span class="tag">noiseSuppression</span>
+        <span class="d">壓背景噪音，代價是人聲細節與音質。</span></span>
+    </label>
+    <label class="check">
+      <input type="checkbox" id="agc">
+      <span class="t">自動增益 <span class="tag">autoGainControl</span>
+        <span class="d">自動調整音量，會讓安靜時的底噪被推大。</span></span>
+    </label>
+  </div>
+</section>
+
+<footer>
+  <b style="color:var(--text)">關於藍牙</b>
+  <ul>
+    <li>網頁<b>無法配對</b>藍牙裝置。配對請到系統設定完成，這裡只會列出已連線的裝置。標示 <span class="tag">藍牙?</span> 是依裝置名稱推測，不保證準確。</li>
+    <li>藍牙耳機一旦被當成<b>麥克風</b>使用，會從 A2DP 切換到 HFP 模式：取樣率掉到 16 kHz 以下、立體聲變單聲道。這是藍牙協定的限制，任何網頁都改不了。想要好音質，建議輸入用有線或內建麥克風，只有輸出走藍牙。</li>
+    <li>藍牙本身有 100–300 ms 的傳輸延遲，即時監聽會明顯聽到延遲。要真正低延遲請用有線耳機。</li>
+    <li>裝置插拔或藍牙連線變化時清單會自動更新。</li>
+  </ul>
+</footer>
+
+</div>
+
+<script>
+"use strict";
+
+const $ = (id) => document.getElementById(id);
+const el = {
+  status:$("status"), statusText:$("statusText"), fatal:$("fatal"),
+  permSec:$("permSec"), devSec:$("devSec"), monSec:$("monSec"), advSec:$("advSec"),
+  btnPerm:$("btnPerm"), btnRefresh:$("btnRefresh"), btnToggle:$("btnToggle"),
+  inSel:$("inSel"), outSel:$("outSel"), inCount:$("inCount"), outMode:$("outMode"), outNote:$("outNote"),
+  vol:$("vol"), volVal:$("volVal"), mute:$("mute"),
+  meterFill:$("meterFill"), meterPeak:$("meterPeak"), dbVal:$("dbVal"),
+  stRate:$("stRate"), stCh:$("stCh"), stLat:$("stLat"),
+  ec:$("ec"), ns:$("ns"), agc:$("agc"),
+};
+
+// ---- 能力偵測 ----------------------------------------------------------
+const AudioCtor = window.AudioContext || window.webkitAudioContext;
+const has = {
+  gum: !!(navigator.mediaDevices && navigator.mediaDevices.getUserMedia),
+  audio: !!AudioCtor,
+  // Chrome 110+ 能直接把整個 AudioContext 導向指定裝置，這條路徑延遲最低
+  ctxSink: !!(AudioCtor && "setSinkId" in AudioCtor.prototype),
+  // 退路：把音訊接到 <audio> 元素再指定輸出（多一層緩衝，延遲較高）
+  elSink: "setSinkId" in HTMLMediaElement.prototype,
+};
+// 決定輸出路徑：ctx（低延遲）> element（可用但較高延遲）> default（無法選擇）
+const sinkMode = has.ctxSink ? "ctx" : (has.elSink ? "element" : "none");
+
+// ---- 狀態 --------------------------------------------------------------
+let ctx = null, stream = null, srcNode = null, gainNode = null, analyser = null;
+let mediaDest = null, audioEl = null, rafId = null, statTimer = null;
+let running = false, peakHold = 0, peakAt = 0;
+
+function setStatus(text, live) {
+  el.statusText.textContent = text;
+  el.status.classList.toggle("live", !!live);
+}
+function fatal(msg) {
+  el.fatal.innerHTML = msg;
+  el.fatal.hidden = false;
+}
+
+// ---- 環境檢查 ----------------------------------------------------------
+if (!has.gum || !has.audio) {
+  fatal("<b>這個瀏覽器不支援必要的音訊 API。</b>請改用 Chrome、Edge、Firefox 或 Safari 的近期版本。");
+  el.btnPerm.disabled = true;
+} else if (!window.isSecureContext) {
+  fatal("<b>需要 HTTPS。</b>瀏覽器只在安全連線下開放麥克風，請透過 https:// 或 localhost 開啟本頁。");
+  el.btnPerm.disabled = true;
+}
+
+// ---- 步驟 1：取得權限 ---------------------------------------------------
+el.btnPerm.addEventListener("click", async () => {
+  el.btnPerm.disabled = true;
+  el.btnPerm.textContent = "等待授權…";
+  try {
+    // 只為了解鎖裝置名稱，拿到就立刻釋放
+    const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
+    probe.getTracks().forEach(t => t.stop());
+
+    el.permSec.hidden = true;
+    el.devSec.hidden = false;
+    el.monSec.hidden = false;
+    el.advSec.hidden = false;
+    setStatus("待命");
+    describeSink();
+    await refreshDevices();
+
+    navigator.mediaDevices.addEventListener("devicechange", refreshDevices);
+  } catch (err) {
+    el.btnPerm.disabled = false;
+    el.btnPerm.textContent = "允許使用麥克風";
+    const why = err && err.name === "NotAllowedError"
+      ? "你拒絕了授權，或瀏覽器設定封鎖了此網站的麥克風。請點網址列的鎖頭圖示重新開放。"
+      : err && err.name === "NotFoundError"
+      ? "找不到任何麥克風裝置。"
+      : "錯誤：" + (err && err.message ? err.message : String(err));
+    fatal("<b>無法取得麥克風。</b>" + why);
+  }
+});
+
+// ---- 裝置清單 ----------------------------------------------------------
+// 依名稱猜測是否為藍牙裝置。純字串比對，沒有更可靠的 Web API 可用。
+const BT_HINT = /bluetooth|藍牙|蓝牙|airpods|beats|buds|bt\b|hands[- ]?free|headset|wh-|wf-|soundcore|jabra|bose|sennheiser/i;
+
+function labelOf(d, i, kind) {
+  const raw = d.label || `${kind} ${i + 1}`;
+  return BT_HINT.test(d.label || "") ? raw + "  ⟨藍牙?⟩" : raw;
+}
+
+async function refreshDevices() {
+  let list;
+  try {
+    list = await navigator.mediaDevices.enumerateDevices();
+  } catch (err) {
+    fatal("<b>無法列出裝置。</b>" + (err && err.message ? err.message : String(err)));
+    return;
+  }
+
+  const ins = list.filter(d => d.kind === "audioinput");
+  const outs = list.filter(d => d.kind === "audiooutput");
+
+  fillSelect(el.inSel, ins, "麥克風");
+  el.inCount.textContent = ins.length + " 個裝置";
+
+  if (sinkMode === "none") {
+    el.outSel.innerHTML = '<option>系統預設輸出（無法指定）</option>';
+    el.outSel.disabled = true;
+  } else {
+    fillSelect(el.outSel, outs, "輸出");
+  }
+}
+
+// 重建下拉選單，同時保留使用者目前的選擇（裝置拔插時不會被重設）
+function fillSelect(sel, devices, kind) {
+  const prev = sel.value;
+  sel.innerHTML = "";
+  if (!devices.length) {
+    sel.innerHTML = "<option>找不到裝置</option>";
+    sel.disabled = true;
+    return;
+  }
+  sel.disabled = false;
+  for (let i = 0; i < devices.length; i++) {
+    const o = document.createElement("option");
+    o.value = devices[i].deviceId;
+    o.textContent = labelOf(devices[i], i, kind);
+    sel.appendChild(o);
+  }
+  if (prev && devices.some(d => d.deviceId === prev)) sel.value = prev;
+}
+
+el.btnRefresh.addEventListener("click", refreshDevices);
+
+function describeSink() {
+  if (sinkMode === "ctx") {
+    el.outMode.textContent = "低延遲";
+  } else if (sinkMode === "element") {
+    el.outMode.textContent = "相容模式";
+    el.outNote.hidden = false;
+    el.outNote.className = "note";
+    el.outNote.innerHTML = "這個瀏覽器不支援直接切換音訊輸出，改走 <code>&lt;audio&gt;</code> 元素轉送。功能正常，但會多出約 20–100 ms 延遲。";
+  } else {
+    el.outMode.textContent = "不支援";
+    el.outNote.hidden = false;
+    el.outNote.className = "note warn";
+    el.outNote.innerHTML = "<b>這個瀏覽器無法選擇輸出裝置</b>（Safari 與 iOS 皆不支援 <code>setSinkId</code>）。聲音只會送到系統目前的預設輸出，請直接到系統設定切換耳機。";
+  }
+}
+
+// ---- 監聽開關 ----------------------------------------------------------
+el.btnToggle.addEventListener("click", () => running ? stop() : start());
+
+async function start() {
+  el.btnToggle.disabled = true;
+  el.fatal.hidden = true;
+  setStatus("啟動中…");
+
+  try {
+    const deviceId = el.inSel.value;
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: deviceId ? { exact: deviceId } : undefined,
+        echoCancellation: el.ec.checked,
+        noiseSuppression: el.ns.checked,
+        autoGainControl: el.agc.checked,
+      },
+    });
+
+    // latencyHint:"interactive" 要求瀏覽器用最小的緩衝區
+    ctx = new AudioCtor({ latencyHint: "interactive" });
+    if (ctx.state === "suspended") await ctx.resume();
+
+    srcNode = ctx.createMediaStreamSource(stream);
+    gainNode = ctx.createGain();
+    analyser = ctx.createAnalyser();
+    analyser.fftSize = 2048;
+    analyser.smoothingTimeConstant = 0;
+
+    // 從靜音淡入，避免一啟動就爆音或直接嘯叫
+    gainNode.gain.value = 0;
+    srcNode.connect(gainNode);
+    gainNode.connect(analyser); // AnalyserNode 是旁路量測，不影響主路徑延遲
+
+    await routeOutput();
+
+    applyGain(0.12);
+    startMeter();
+    startStats();
+
+    running = true;
+    el.btnToggle.textContent = "停止監聽";
+    el.btnToggle.classList.add("stop");
+    el.inSel.disabled = true;
+    setStatus("監聽中", true);
+  } catch (err) {
+    await stop();
+    const name = err && err.name;
+    const why = name === "NotAllowedError" ? "麥克風權限被拒。"
+      : name === "NotFoundError" || name === "OverconstrainedError" ? "選定的裝置已不存在，請重新掃描後再試。"
+      : name === "NotReadableError" ? "裝置被其他程式佔用，或系統拒絕存取。"
+      : "錯誤：" + (err && err.message ? err.message : String(err));
+    fatal("<b>無法開始監聽。</b>" + why);
+    setStatus("未啟動");
+  } finally {
+    el.btnToggle.disabled = false;
+  }
+}
+
+// 依偵測到的能力把 gainNode 接到實際輸出
+async function routeOutput() {
+  const outId = el.outSel.disabled ? "" : el.outSel.value;
+
+  if (sinkMode === "ctx") {
+    if (outId) {
+      try { await ctx.setSinkId(outId); }
+      catch (e) { console.warn("AudioContext.setSinkId 失敗，改用預設輸出", e); }
+    }
+    gainNode.connect(ctx.destination);
+    return;
+  }
+
+  if (sinkMode === "element") {
+    mediaDest = ctx.createMediaStreamDestination();
+    gainNode.connect(mediaDest);
+    audioEl = new Audio();
+    audioEl.srcObject = mediaDest.stream;
+    if (outId) {
+      try { await audioEl.setSinkId(outId); }
+      catch (e) { console.warn("HTMLMediaElement.setSinkId 失敗，改用預設輸出", e); }
+    }
+    await audioEl.play();
+    return;
+  }
+
+  gainNode.connect(ctx.destination);
+}
+
+async function stop() {
+  running = false;
+
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (statTimer) { clearInterval(statTimer); statTimer = null; }
+
+  if (audioEl) { audioEl.pause(); audioEl.srcObject = null; audioEl = null; }
+  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
+
+  [srcNode, gainNode, analyser, mediaDest].forEach(n => { try { n && n.disconnect(); } catch (_) {} });
+  srcNode = gainNode = analyser = mediaDest = null;
+
+  if (ctx) { try { await ctx.close(); } catch (_) {} ctx = null; }
+
+  el.btnToggle.textContent = "開始監聽";
+  el.btnToggle.classList.remove("stop");
+  el.inSel.disabled = false;
+  setStatus("待命");
+  resetMeter();
+}
+
+// ---- 音量 --------------------------------------------------------------
+function targetGain() {
+  return el.mute.checked ? 0 : Number(el.vol.value) / 100;
+}
+// setTargetAtTime 做指數漸變，避免調整音量時的喀噠聲
+function applyGain(tau) {
+  if (!gainNode || !ctx) return;
+  gainNode.gain.setTargetAtTime(targetGain(), ctx.currentTime, tau || 0.02);
+}
+el.vol.addEventListener("input", () => {
+  el.volVal.textContent = el.vol.value + "%";
+  applyGain();
+});
+el.mute.addEventListener("change", applyGain);
+
+// 切換輸出裝置時即時套用，不需要重啟
+el.outSel.addEventListener("change", async () => {
+  if (!running) return;
+  const outId = el.outSel.value;
+  try {
+    if (sinkMode === "ctx") await ctx.setSinkId(outId);
+    else if (sinkMode === "element" && audioEl) await audioEl.setSinkId(outId);
+  } catch (e) {
+    fatal("<b>切換輸出裝置失敗。</b>" + (e && e.message ? e.message : String(e)));
+  }
+});
+
+// ---- 音量表 ------------------------------------------------------------
+const PEAK_HOLD_MS = 900;
+
+function dbToPct(db) {
+  // -60 dB → 0%，0 dB → 100%
+  return Math.max(0, Math.min(100, (db + 60) / 60 * 100));
+}
+
+function startMeter() {
+  const buf = new Float32Array(analyser.fftSize);
+  const tick = (now) => {
+    if (!running || !analyser) return;
+    analyser.getFloatTimeDomainData(buf);
+
+    let sum = 0, peak = 0;
+    for (let i = 0; i < buf.length; i++) {
+      const v = buf[i];
+      sum += v * v;
+      const a = v < 0 ? -v : v;
+      if (a > peak) peak = a;
+    }
+    const rms = Math.sqrt(sum / buf.length);
+    const rmsDb = 20 * Math.log10(rms || 1e-9);
+    const peakDb = 20 * Math.log10(peak || 1e-9);
+
+    el.meterFill.style.clipPath = "inset(0 " + (100 - dbToPct(rmsDb)) + "% 0 0)";
+
+    if (peakDb >= peakHold || now - peakAt > PEAK_HOLD_MS) { peakHold = peakDb; peakAt = now; }
+    el.meterPeak.style.left = dbToPct(peakHold) + "%";
+    el.dbVal.textContent = (rmsDb <= -59 ? "—" : rmsDb.toFixed(1) + " dB");
+
+    rafId = requestAnimationFrame(tick);
+  };
+  rafId = requestAnimationFrame(tick);
+}
+
+function resetMeter() {
+  el.meterFill.style.clipPath = "inset(0 100% 0 0)";
+  el.meterPeak.style.left = "0%";
+  el.dbVal.textContent = "—";
+  el.stRate.textContent = el.stCh.textContent = el.stLat.textContent = "—";
+  peakHold = 0;
+}
+
+// ---- 統計 --------------------------------------------------------------
+function startStats() {
+  const update = () => {
+    if (!ctx || !stream) return;
+    const track = stream.getAudioTracks()[0];
+    const s = track ? track.getSettings() : {};
+
+    el.stRate.textContent = ((s.sampleRate || ctx.sampleRate) / 1000).toFixed(1) + " kHz";
+    el.stCh.textContent = s.channelCount === 2 ? "立體聲" : (s.channelCount === 1 ? "單聲道" : "—");
+
+    // outputLatency 只有 Chrome 系提供；沒有時只算得出輸入端緩衝
+    const base = ctx.baseLatency || 0;
+    const out = ctx.outputLatency || 0;
+    const ms = (base + out) * 1000;
+    el.stLat.textContent = ms > 0 ? "~" + ms.toFixed(0) + " ms" + (out ? "" : " 起") : "—";
+  };
+  update();
+  statTimer = setInterval(update, 1000);
+}
+
+// 分頁關閉前釋放裝置，否則藍牙耳機可能卡在 HFP 模式
+window.addEventListener("pagehide", () => { if (running) stop(); });
+</script>
+</body>
+</html>
