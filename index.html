@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>shareMic2Ear — 麥克風即時監聽</title>
-<meta name="description" content="在瀏覽器裡把麥克風即時導到指定的音訊輸出裝置，適合藍牙耳機監聽。">
+<title>shareMic2Ear — 多路麥克風即時監聽</title>
+<meta name="description" content="在瀏覽器裡把一支或多支麥克風混音後即時導到指定的音訊輸出裝置，適合藍牙耳機監聽。">
 <style>
 :root{
   color-scheme: dark;
@@ -78,6 +78,7 @@ section{
 h2{
   font-size:.72rem;font-weight:600;text-transform:uppercase;letter-spacing:.09em;
   color:var(--muted);margin:0 0 14px;
+  display:flex;justify-content:space-between;align-items:center;gap:10px;
 }
 
 label.field{display:block;margin-bottom:14px}
@@ -118,17 +119,43 @@ button.primary{
   font-weight:600;width:100%;padding:13px;font-size:1rem;
 }
 button.primary.stop{background:var(--danger);border-color:var(--danger);color:#fff}
-button.ghost{padding:6px 10px;font-size:.8rem}
+button.ghost{padding:5px 9px;font-size:.75rem;font-weight:400}
 
-.row{display:flex;gap:8px;align-items:flex-end}
-.row > label.field{flex:1;margin-bottom:0}
+.h2-tools{display:flex;gap:6px;text-transform:none;letter-spacing:0}
+
+/* 麥克風清單 */
+.mic{
+  border:1px solid var(--border);border-radius:8px;
+  background:var(--surface-2);padding:10px 12px;margin-bottom:8px;
+  transition:border-color .12s;
+}
+.mic:last-child{margin-bottom:0}
+.mic.on{border-color:var(--accent-dim)}
+.mic.err{border-color:var(--danger)}
+.mic-head{display:flex;align-items:center;gap:9px;cursor:pointer}
+.mic-head input{margin:0;flex:none;accent-color:var(--accent);width:15px;height:15px}
+.mic-name{flex:1;font-size:.85rem;line-height:1.35;word-break:break-word}
+.mic-state{font-family:var(--mono);font-size:.68rem;color:var(--muted);flex:none}
+.mic.on .mic-state{color:var(--accent)}
+.mic.err .mic-state{color:var(--danger)}
+.mic-body{
+  display:flex;align-items:center;gap:9px;
+  margin-top:9px;padding-top:9px;border-top:1px solid var(--border);
+}
+.mic-body[hidden]{display:none}
+.mic-body input[type=range]{flex:1;min-width:60px}
+.mic-pct{font-family:var(--mono);font-size:.7rem;color:var(--muted);width:34px;text-align:right;flex:none}
+.mic-mute{padding:3px 8px;font-size:.7rem;flex:none}
+.mic-mute[aria-pressed="true"]{background:var(--danger);border-color:var(--danger);color:#fff}
+
+.empty{color:var(--muted);font-size:.82rem;text-align:center;padding:14px}
 
 /* 音量表 */
-.meter-wrap{margin-top:2px}
 .meter{
   position:relative;height:12px;border-radius:99px;overflow:hidden;
   background:var(--surface-2);border:1px solid var(--border);
 }
+.meter.mini{height:7px;width:62px;flex:none;background:var(--surface)}
 /* 漸層鋪滿整條軌道再用 clip-path 裁切，讓顏色對應真實 dB 位置而不是隨長度縮放 */
 .meter-fill{
   position:absolute;inset:0;
@@ -173,12 +200,14 @@ button.ghost{padding:6px 10px;font-size:.8rem}
 .tag{
   font-size:.65rem;font-family:var(--mono);padding:1px 5px;border-radius:4px;
   border:1px solid var(--border-strong);color:var(--muted);vertical-align:1px;
+  white-space:nowrap;
 }
 
 footer{color:var(--muted);font-size:.78rem;line-height:1.7;margin-top:28px}
 footer ul{padding-left:1.15em;margin:8px 0 0}
 footer li{margin-bottom:5px}
 footer code{font-family:var(--mono);font-size:.95em;background:var(--surface-2);padding:1px 4px;border-radius:4px;border:1px solid var(--border)}
+footer b{color:var(--text)}
 a{color:var(--accent)}
 </style>
 </head>
@@ -189,7 +218,7 @@ a{color:var(--accent)}
   <h1>shareMic2Ear</h1>
   <span class="status" id="status"><span class="dot"></span><span id="statusText">未啟動</span></span>
 </header>
-<p class="sub">把麥克風即時導到指定的音訊輸出裝置。</p>
+<p class="sub">把一支或多支麥克風混音後，即時導到指定的音訊輸出裝置。</p>
 
 <div class="note err" id="fatal" hidden></div>
 
@@ -202,55 +231,63 @@ a{color:var(--accent)}
   <button class="primary" id="btnPerm">允許使用麥克風</button>
 </section>
 
-<!-- 步驟 2：裝置 -->
-<section id="devSec" hidden>
-  <h2>步驟 2 · 裝置</h2>
+<!-- 步驟 2：輸入 -->
+<section id="inSec" hidden>
+  <h2>
+    <span>步驟 2 · 輸入（可多選）</span>
+    <span class="h2-tools">
+      <button class="ghost" id="btnAll">全選</button>
+      <button class="ghost" id="btnNone">清除</button>
+      <button class="ghost" id="btnRefresh">重新掃描</button>
+    </span>
+  </h2>
 
-  <div class="row" style="margin-bottom:14px">
-    <label class="field">
-      <span class="field-label"><span>輸入（麥克風）</span><span class="hint" id="inCount"></span></span>
-      <select id="inSel"></select>
-    </label>
-    <button class="ghost" id="btnRefresh" title="重新掃描裝置">重新掃描</button>
+  <div id="micList"></div>
+
+  <div class="note" id="multiNote" hidden style="margin-top:12px">
+    <b>同時使用多支麥克風時：</b>如果它們在同一個空間，會互相收到彼此的聲音，混音後產生梳狀濾波（聲音變空洞、有金屬感）。把用不到的那支靜音，或拉開距離可以改善。
   </div>
+</section>
 
+<!-- 步驟 3：輸出 -->
+<section id="outSec" hidden>
+  <h2>步驟 3 · 輸出</h2>
   <label class="field">
-    <span class="field-label"><span>輸出（耳機／喇叭）</span><span class="hint" id="outMode"></span></span>
+    <span class="field-label"><span>耳機／喇叭</span><span class="hint" id="outMode"></span></span>
     <select id="outSel"></select>
   </label>
-
   <div class="note" id="outNote" hidden style="margin-top:12px"></div>
 </section>
 
-<!-- 步驟 3：監聽 -->
+<!-- 步驟 4：監聽 -->
 <section id="monSec" hidden>
-  <h2>步驟 3 · 監聽</h2>
+  <h2>步驟 4 · 監聽</h2>
 
   <div class="note warn" style="margin-bottom:14px">
-    <b>先戴上耳機再開始。</b>用喇叭播放會讓麥克風收到自己的聲音，形成回授嘯叫。
+    <b>先戴上耳機再開始。</b>用喇叭播放會讓麥克風收到自己的聲音，形成回授嘯叫。麥克風越多越嚴重。
   </div>
 
   <button class="primary" id="btnToggle">開始監聽</button>
 
   <label class="field" style="margin-top:16px">
-    <span class="field-label"><span>音量</span><span class="hint" id="volVal">100%</span></span>
+    <span class="field-label"><span>總音量</span><span class="hint" id="volVal">100%</span></span>
     <input type="range" id="vol" min="0" max="200" step="1" value="100">
   </label>
 
   <label class="check" style="margin-top:2px">
     <input type="checkbox" id="mute">
-    <span class="t">靜音</span>
+    <span class="t">全部靜音</span>
   </label>
 
-  <div class="meter-wrap" style="margin-top:16px">
-    <div class="field-label"><span style="font-size:.85rem">輸入音量</span><span class="hint" id="dbVal">—</span></div>
+  <div style="margin-top:16px">
+    <div class="field-label"><span style="font-size:.85rem">混音輸出</span><span class="hint" id="dbVal">—</span></div>
     <div class="meter"><div class="meter-fill" id="meterFill"></div><div class="meter-peak" id="meterPeak"></div></div>
     <div class="meter-scale"><span>-60</span><span>-40</span><span>-20</span><span>-6</span><span>0 dB</span></div>
   </div>
 
   <dl class="stats">
+    <div class="stat"><dt>麥克風</dt><dd id="stMics">—</dd></div>
     <div class="stat"><dt>取樣率</dt><dd id="stRate">—</dd></div>
-    <div class="stat"><dt>聲道</dt><dd id="stCh">—</dd></div>
     <div class="stat"><dt>估計延遲</dt><dd id="stLat">—</dd></div>
   </dl>
 </section>
@@ -259,7 +296,7 @@ a{color:var(--accent)}
 <section id="advSec" hidden>
   <h2>音訊處理</h2>
   <p class="note" style="margin-bottom:14px">
-    這三項預設<b>全部關閉</b>。它們是為了通話設計的：回音消除會把你自己的聲音判定成回音而削掉，做監聽時反而礙事。改動後需要重新啟動監聽才會生效。
+    這三項預設<b>全部關閉</b>，並且會套用到每一支麥克風。它們是為了通話設計的：回音消除會把你自己的聲音判定成回音而削掉，做監聽時反而礙事。改動後需要重新啟動監聽才會生效。
   </p>
   <div class="checks">
     <label class="check">
@@ -281,7 +318,13 @@ a{color:var(--accent)}
 </section>
 
 <footer>
-  <b style="color:var(--text)">關於藍牙</b>
+  <b>多支麥克風</b>
+  <ul>
+    <li>監聽進行中也可以隨時勾選或取消麥克風，不必停止重來。每支都有獨立的音量與靜音。</li>
+    <li>同時開多支<b>藍牙</b>麥克風容易撞到頻寬與驅動限制，可能有裝置開不起來或聲音斷續。建議一次只用一支藍牙輸入。</li>
+    <li>若某支麥克風啟用失敗，其餘的會繼續運作，該列會標示錯誤原因。</li>
+  </ul>
+  <b>關於藍牙</b>
   <ul>
     <li>網頁<b>無法配對</b>藍牙裝置。配對請到系統設定完成，這裡只會列出已連線的裝置。標示 <span class="tag">藍牙?</span> 是依裝置名稱推測，不保證準確。</li>
     <li>藍牙耳機一旦被當成<b>麥克風</b>使用，會從 A2DP 切換到 HFP 模式：取樣率掉到 16 kHz 以下、立體聲變單聲道。這是藍牙協定的限制，任何網頁都改不了。想要好音質，建議輸入用有線或內建麥克風，只有輸出走藍牙。</li>
@@ -298,12 +341,14 @@ a{color:var(--accent)}
 const $ = (id) => document.getElementById(id);
 const el = {
   status:$("status"), statusText:$("statusText"), fatal:$("fatal"),
-  permSec:$("permSec"), devSec:$("devSec"), monSec:$("monSec"), advSec:$("advSec"),
+  permSec:$("permSec"), inSec:$("inSec"), outSec:$("outSec"), monSec:$("monSec"), advSec:$("advSec"),
   btnPerm:$("btnPerm"), btnRefresh:$("btnRefresh"), btnToggle:$("btnToggle"),
-  inSel:$("inSel"), outSel:$("outSel"), inCount:$("inCount"), outMode:$("outMode"), outNote:$("outNote"),
+  btnAll:$("btnAll"), btnNone:$("btnNone"),
+  micList:$("micList"), multiNote:$("multiNote"),
+  outSel:$("outSel"), outMode:$("outMode"), outNote:$("outNote"),
   vol:$("vol"), volVal:$("volVal"), mute:$("mute"),
   meterFill:$("meterFill"), meterPeak:$("meterPeak"), dbVal:$("dbVal"),
-  stRate:$("stRate"), stCh:$("stCh"), stLat:$("stLat"),
+  stMics:$("stMics"), stRate:$("stRate"), stLat:$("stLat"),
   ec:$("ec"), ns:$("ns"), agc:$("agc"),
 };
 
@@ -317,11 +362,18 @@ const has = {
   // 退路：把音訊接到 <audio> 元素再指定輸出（多一層緩衝，延遲較高）
   elSink: "setSinkId" in HTMLMediaElement.prototype,
 };
-// 決定輸出路徑：ctx（低延遲）> element（可用但較高延遲）> default（無法選擇）
+// 決定輸出路徑：ctx（低延遲）> element（可用但較高延遲）> none（無法選擇）
 const sinkMode = has.ctxSink ? "ctx" : (has.elSink ? "element" : "none");
 
 // ---- 狀態 --------------------------------------------------------------
-let ctx = null, stream = null, srcNode = null, gainNode = null, analyser = null;
+// mics: deviceId -> { stream, src, gain, analyser, buf, vol, muted, row }
+// 沒在監聽時 mics 是空的，勾選狀態獨立記在 selected 裡，這樣重新掃描裝置
+// 或停止再啟動都不會弄丟使用者的選擇。
+const mics = new Map();
+const selected = new Set();
+let rows = new Map(); // deviceId -> DOM 元素集合
+
+let ctx = null, masterGain = null, masterAnalyser = null, masterBuf = null;
 let mediaDest = null, audioEl = null, rafId = null, statTimer = null;
 let running = false, peakHold = 0, peakAt = 0;
 
@@ -353,14 +405,12 @@ el.btnPerm.addEventListener("click", async () => {
     probe.getTracks().forEach(t => t.stop());
 
     el.permSec.hidden = true;
-    el.devSec.hidden = false;
-    el.monSec.hidden = false;
-    el.advSec.hidden = false;
+    el.inSec.hidden = el.outSec.hidden = el.monSec.hidden = el.advSec.hidden = false;
     setStatus("待命");
     describeSink();
-    await refreshDevices();
+    await refreshDevices(true);
 
-    navigator.mediaDevices.addEventListener("devicechange", refreshDevices);
+    navigator.mediaDevices.addEventListener("devicechange", () => refreshDevices(false));
   } catch (err) {
     el.btnPerm.disabled = false;
     el.btnPerm.textContent = "允許使用麥克風";
@@ -377,12 +427,7 @@ el.btnPerm.addEventListener("click", async () => {
 // 依名稱猜測是否為藍牙裝置。純字串比對，沒有更可靠的 Web API 可用。
 const BT_HINT = /bluetooth|藍牙|蓝牙|airpods|beats|buds|bt\b|hands[- ]?free|headset|wh-|wf-|soundcore|jabra|bose|sennheiser/i;
 
-function labelOf(d, i, kind) {
-  const raw = d.label || `${kind} ${i + 1}`;
-  return BT_HINT.test(d.label || "") ? raw + "  ⟨藍牙?⟩" : raw;
-}
-
-async function refreshDevices() {
+async function refreshDevices(firstRun) {
   let list;
   try {
     list = await navigator.mediaDevices.enumerateDevices();
@@ -392,39 +437,179 @@ async function refreshDevices() {
   }
 
   const ins = list.filter(d => d.kind === "audioinput");
-  const outs = list.filter(d => d.kind === "audiooutput");
 
-  fillSelect(el.inSel, ins, "麥克風");
-  el.inCount.textContent = ins.length + " 個裝置";
+  // 預設勾選第一支，之後只跟隨使用者的選擇
+  if (firstRun && ins.length) selected.add(ins[0].deviceId);
+
+  // 裝置消失時（拔線、藍牙斷開）要把它從選擇與運作中移除
+  const alive = new Set(ins.map(d => d.deviceId));
+  for (const id of [...selected]) if (!alive.has(id)) selected.delete(id);
+  for (const id of [...mics.keys()]) if (!alive.has(id)) removeMic(id);
+
+  renderMics(ins);
 
   if (sinkMode === "none") {
-    el.outSel.innerHTML = '<option>系統預設輸出（無法指定）</option>';
+    el.outSel.innerHTML = "<option>系統預設輸出（無法指定）</option>";
     el.outSel.disabled = true;
   } else {
-    fillSelect(el.outSel, outs, "輸出");
+    fillOutputs(list.filter(d => d.kind === "audiooutput"));
   }
 }
 
-// 重建下拉選單，同時保留使用者目前的選擇（裝置拔插時不會被重設）
-function fillSelect(sel, devices, kind) {
-  const prev = sel.value;
-  sel.innerHTML = "";
+function renderMics(devices) {
+  el.micList.innerHTML = "";
+  rows = new Map();
+
   if (!devices.length) {
-    sel.innerHTML = "<option>找不到裝置</option>";
-    sel.disabled = true;
+    el.micList.innerHTML = '<p class="empty">找不到任何麥克風裝置。</p>';
+    updateMultiNote();
     return;
   }
-  sel.disabled = false;
-  for (let i = 0; i < devices.length; i++) {
-    const o = document.createElement("option");
-    o.value = devices[i].deviceId;
-    o.textContent = labelOf(devices[i], i, kind);
-    sel.appendChild(o);
-  }
-  if (prev && devices.some(d => d.deviceId === prev)) sel.value = prev;
+
+  devices.forEach((d, i) => {
+    const id = d.deviceId;
+    const isBT = BT_HINT.test(d.label || "");
+
+    const row = document.createElement("div");
+    row.className = "mic";
+
+    const head = document.createElement("label");
+    head.className = "mic-head";
+
+    const check = document.createElement("input");
+    check.type = "checkbox";
+    check.checked = selected.has(id);
+
+    const name = document.createElement("span");
+    name.className = "mic-name";
+    name.textContent = d.label || ("麥克風 " + (i + 1));
+    if (isBT) {
+      const tag = document.createElement("span");
+      tag.className = "tag";
+      tag.textContent = "藍牙?";
+      name.append(" ", tag);
+    }
+
+    const state = document.createElement("span");
+    state.className = "mic-state";
+    state.textContent = "";
+
+    head.append(check, name, state);
+
+    const body = document.createElement("div");
+    body.className = "mic-body";
+    body.hidden = !check.checked;
+
+    // 這支可能正在運作中（例如 devicechange 觸發重繪），UI 要反映它目前的實際值
+    const live = mics.get(id);
+    const muted = live ? live.muted : false;
+
+    const vol = document.createElement("input");
+    vol.type = "range";
+    vol.min = 0; vol.max = 200; vol.step = 1;
+    vol.value = live ? Math.round(live.vol * 100) : 100;
+    vol.setAttribute("aria-label", "此麥克風的音量");
+
+    const pct = document.createElement("span");
+    pct.className = "mic-pct";
+    pct.textContent = vol.value + "%";
+
+    const muteBtn = document.createElement("button");
+    muteBtn.className = "mic-mute";
+    muteBtn.type = "button";
+    muteBtn.textContent = muted ? "已靜音" : "靜音";
+    muteBtn.setAttribute("aria-pressed", String(muted));
+
+    const meter = document.createElement("div");
+    meter.className = "meter mini";
+    const fill = document.createElement("div");
+    fill.className = "meter-fill";
+    meter.appendChild(fill);
+
+    body.append(vol, pct, muteBtn, meter);
+    row.append(head, body);
+    el.micList.appendChild(row);
+
+    const r = { row, check, state, body, vol, pct, muteBtn, fill };
+    rows.set(id, r);
+
+    // 監聽中切換勾選會即時加入或移除該麥克風，不需要重啟
+    check.addEventListener("change", async () => {
+      body.hidden = !check.checked;
+      row.classList.remove("err");
+      state.textContent = "";
+      if (check.checked) {
+        selected.add(id);
+        // addMic 失敗時會 throw，這裡吞掉：該列自己會標示錯誤，其餘麥克風不受影響
+        if (running) { try { await addMic(id); } catch (_) {} }
+      } else {
+        selected.delete(id);
+        removeMic(id);
+      }
+      updateRowState(id);
+      updateMultiNote();
+      if (running && !mics.size) stop();
+    });
+
+    vol.addEventListener("input", () => {
+      pct.textContent = vol.value + "%";
+      const m = mics.get(id);
+      if (m) { m.vol = Number(vol.value) / 100; rampMic(m); }
+    });
+
+    muteBtn.addEventListener("click", () => {
+      const on = muteBtn.getAttribute("aria-pressed") !== "true";
+      muteBtn.setAttribute("aria-pressed", String(on));
+      muteBtn.textContent = on ? "已靜音" : "靜音";
+      const m = mics.get(id);
+      if (m) { m.muted = on; rampMic(m); }
+    });
+
+    updateRowState(id);
+  });
+
+  updateMultiNote();
 }
 
-el.btnRefresh.addEventListener("click", refreshDevices);
+function updateRowState(id) {
+  const r = rows.get(id);
+  if (!r) return;
+  r.row.classList.toggle("on", mics.has(id));
+  if (mics.has(id)) r.state.textContent = "連線中";
+  else if (!r.row.classList.contains("err")) r.state.textContent = "";
+}
+
+function updateMultiNote() {
+  el.multiNote.hidden = selected.size < 2;
+}
+
+function fillOutputs(devices) {
+  const prev = el.outSel.value;
+  el.outSel.innerHTML = "";
+  if (!devices.length) {
+    el.outSel.innerHTML = "<option>找不到輸出裝置</option>";
+    el.outSel.disabled = true;
+    return;
+  }
+  el.outSel.disabled = false;
+  devices.forEach((d, i) => {
+    const o = document.createElement("option");
+    o.value = d.deviceId;
+    o.textContent = (d.label || ("輸出 " + (i + 1))) + (BT_HINT.test(d.label || "") ? "  ⟨藍牙?⟩" : "");
+    el.outSel.appendChild(o);
+  });
+  if (prev && devices.some(d => d.deviceId === prev)) el.outSel.value = prev;
+}
+
+el.btnRefresh.addEventListener("click", () => refreshDevices(false));
+
+el.btnAll.addEventListener("click", () => setAll(true));
+el.btnNone.addEventListener("click", () => setAll(false));
+function setAll(on) {
+  for (const [, r] of rows) {
+    if (r.check.checked !== on) { r.check.checked = on; r.check.dispatchEvent(new Event("change")); }
+  }
+}
 
 function describeSink() {
   if (sinkMode === "ctx") {
@@ -446,62 +631,146 @@ function describeSink() {
 el.btnToggle.addEventListener("click", () => running ? stop() : start());
 
 async function start() {
+  if (!selected.size) { fatal("<b>請先勾選至少一支麥克風。</b>"); return; }
+
   el.btnToggle.disabled = true;
   el.fatal.hidden = true;
   setStatus("啟動中…");
 
   try {
-    const deviceId = el.inSel.value;
-    stream = await navigator.mediaDevices.getUserMedia({
-      audio: {
-        deviceId: deviceId ? { exact: deviceId } : undefined,
-        echoCancellation: el.ec.checked,
-        noiseSuppression: el.ns.checked,
-        autoGainControl: el.agc.checked,
-      },
-    });
-
     // latencyHint:"interactive" 要求瀏覽器用最小的緩衝區
     ctx = new AudioCtor({ latencyHint: "interactive" });
     if (ctx.state === "suspended") await ctx.resume();
 
-    srcNode = ctx.createMediaStreamSource(stream);
-    gainNode = ctx.createGain();
-    analyser = ctx.createAnalyser();
-    analyser.fftSize = 2048;
-    analyser.smoothingTimeConstant = 0;
+    masterGain = ctx.createGain();
+    masterGain.gain.value = masterTarget();
 
-    // 從靜音淡入，避免一啟動就爆音或直接嘯叫
-    gainNode.gain.value = 0;
-    srcNode.connect(gainNode);
-    gainNode.connect(analyser); // AnalyserNode 是旁路量測，不影響主路徑延遲
+    masterAnalyser = ctx.createAnalyser();
+    masterAnalyser.fftSize = 2048;
+    masterAnalyser.smoothingTimeConstant = 0;
+    masterBuf = new Float32Array(masterAnalyser.fftSize);
+    masterGain.connect(masterAnalyser); // 旁路量測，不影響主路徑延遲
 
     await routeOutput();
 
-    applyGain(0.12);
+    running = true; // 讓 addMic 知道音訊圖已就緒
+
+    // 一支失敗不該拖垮其他支，所以逐一嘗試並收集結果
+    const results = await Promise.allSettled([...selected].map(id => addMic(id)));
+    const rejected = results.filter(r => r.status === "rejected");
+    const failed = rejected.length;
+
+    if (!mics.size) throw failed ? rejected[0].reason : new Error("沒有任何麥克風啟用成功");
+    if (failed) fatal("<b>有 " + failed + " 支麥克風啟用失敗</b>，其餘已正常運作。詳細原因見各裝置右側標示。");
+
     startMeter();
     startStats();
 
-    running = true;
     el.btnToggle.textContent = "停止監聽";
     el.btnToggle.classList.add("stop");
-    el.inSel.disabled = true;
     setStatus("監聽中", true);
   } catch (err) {
     await stop();
-    const name = err && err.name;
-    const why = name === "NotAllowedError" ? "麥克風權限被拒。"
-      : name === "NotFoundError" || name === "OverconstrainedError" ? "選定的裝置已不存在，請重新掃描後再試。"
-      : name === "NotReadableError" ? "裝置被其他程式佔用，或系統拒絕存取。"
-      : "錯誤：" + (err && err.message ? err.message : String(err));
-    fatal("<b>無法開始監聽。</b>" + why);
+    fatal("<b>無法開始監聽。</b>" + describeErr(err));
     setStatus("未啟動");
   } finally {
     el.btnToggle.disabled = false;
   }
 }
 
-// 依偵測到的能力把 gainNode 接到實際輸出
+function describeErr(err) {
+  const name = err && err.name;
+  if (name === "NotAllowedError") return "麥克風權限被拒。";
+  if (name === "NotFoundError" || name === "OverconstrainedError") return "選定的裝置已不存在，請重新掃描後再試。";
+  if (name === "NotReadableError") return "裝置被其他程式佔用，或系統拒絕存取。";
+  return "錯誤：" + (err && err.message ? err.message : String(err));
+}
+
+// 建立單支麥克風的音訊分支並接進總線
+async function addMic(id) {
+  if (!running || mics.has(id)) return;
+  const r = rows.get(id);
+
+  let stream;
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({
+      audio: {
+        deviceId: { exact: id },
+        echoCancellation: el.ec.checked,
+        noiseSuppression: el.ns.checked,
+        autoGainControl: el.agc.checked,
+      },
+    });
+  } catch (err) {
+    if (r) {
+      r.row.classList.add("err");
+      r.state.textContent = err && err.name === "NotReadableError" ? "被佔用" : "失敗";
+      r.state.title = describeErr(err);
+    }
+    throw err;
+  }
+
+  // 啟用途中使用者可能已經取消勾選或按了停止
+  if (!running || !selected.has(id)) { stream.getTracks().forEach(t => t.stop()); return; }
+
+  const src = ctx.createMediaStreamSource(stream);
+  const gain = ctx.createGain();
+  const analyser = ctx.createAnalyser();
+  analyser.fftSize = 1024;
+  analyser.smoothingTimeConstant = 0;
+
+  // analyser 掛在 src 上量的是麥克風原始收音強度，不受該支音量滑桿影響
+  src.connect(analyser);
+  src.connect(gain);
+  gain.connect(masterGain);
+
+  const mic = {
+    stream, src, gain, analyser,
+    buf: new Float32Array(analyser.fftSize),
+    vol: r ? Number(r.vol.value) / 100 : 1,
+    muted: r ? r.muteBtn.getAttribute("aria-pressed") === "true" : false,
+  };
+
+  gain.gain.value = 0; // 從靜音淡入，避免加入瞬間爆音或嘯叫
+  mics.set(id, mic);
+  rampMic(mic, 0.12);
+
+  if (r) { r.row.classList.remove("err"); r.state.title = ""; }
+  updateRowState(id);
+}
+
+function removeMic(id) {
+  const mic = mics.get(id);
+  if (!mic) return;
+  mics.delete(id);
+  try { mic.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+  [mic.src, mic.gain, mic.analyser].forEach(n => { try { n.disconnect(); } catch (_) {} });
+  const r = rows.get(id);
+  if (r) r.fill.style.clipPath = "inset(0 100% 0 0)";
+  updateRowState(id);
+}
+
+async function stop() {
+  running = false;
+
+  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
+  if (statTimer) { clearInterval(statTimer); statTimer = null; }
+
+  for (const id of [...mics.keys()]) removeMic(id);
+
+  if (audioEl) { audioEl.pause(); audioEl.srcObject = null; audioEl = null; }
+  [masterGain, masterAnalyser, mediaDest].forEach(n => { try { n && n.disconnect(); } catch (_) {} });
+  masterGain = masterAnalyser = mediaDest = masterBuf = null;
+
+  if (ctx) { try { await ctx.close(); } catch (_) {} ctx = null; }
+
+  el.btnToggle.textContent = "開始監聽";
+  el.btnToggle.classList.remove("stop");
+  setStatus("待命");
+  resetMeters();
+}
+
+// 依偵測到的能力把總線接到實際輸出
 async function routeOutput() {
   const outId = el.outSel.disabled ? "" : el.outSel.value;
 
@@ -510,13 +779,13 @@ async function routeOutput() {
       try { await ctx.setSinkId(outId); }
       catch (e) { console.warn("AudioContext.setSinkId 失敗，改用預設輸出", e); }
     }
-    gainNode.connect(ctx.destination);
+    masterGain.connect(ctx.destination);
     return;
   }
 
   if (sinkMode === "element") {
     mediaDest = ctx.createMediaStreamDestination();
-    gainNode.connect(mediaDest);
+    masterGain.connect(mediaDest);
     audioEl = new Audio();
     audioEl.srcObject = mediaDest.stream;
     if (outId) {
@@ -527,44 +796,25 @@ async function routeOutput() {
     return;
   }
 
-  gainNode.connect(ctx.destination);
-}
-
-async function stop() {
-  running = false;
-
-  if (rafId) { cancelAnimationFrame(rafId); rafId = null; }
-  if (statTimer) { clearInterval(statTimer); statTimer = null; }
-
-  if (audioEl) { audioEl.pause(); audioEl.srcObject = null; audioEl = null; }
-  if (stream) { stream.getTracks().forEach(t => t.stop()); stream = null; }
-
-  [srcNode, gainNode, analyser, mediaDest].forEach(n => { try { n && n.disconnect(); } catch (_) {} });
-  srcNode = gainNode = analyser = mediaDest = null;
-
-  if (ctx) { try { await ctx.close(); } catch (_) {} ctx = null; }
-
-  el.btnToggle.textContent = "開始監聽";
-  el.btnToggle.classList.remove("stop");
-  el.inSel.disabled = false;
-  setStatus("待命");
-  resetMeter();
+  masterGain.connect(ctx.destination);
 }
 
 // ---- 音量 --------------------------------------------------------------
-function targetGain() {
+// setTargetAtTime 做指數漸變，避免調整音量時的喀噠聲
+function masterTarget() {
   return el.mute.checked ? 0 : Number(el.vol.value) / 100;
 }
-// setTargetAtTime 做指數漸變，避免調整音量時的喀噠聲
-function applyGain(tau) {
-  if (!gainNode || !ctx) return;
-  gainNode.gain.setTargetAtTime(targetGain(), ctx.currentTime, tau || 0.02);
+function rampMic(mic, tau) {
+  if (!ctx) return;
+  mic.gain.gain.setTargetAtTime(mic.muted ? 0 : mic.vol, ctx.currentTime, tau || 0.02);
 }
 el.vol.addEventListener("input", () => {
   el.volVal.textContent = el.vol.value + "%";
-  applyGain();
+  if (masterGain && ctx) masterGain.gain.setTargetAtTime(masterTarget(), ctx.currentTime, 0.02);
 });
-el.mute.addEventListener("change", applyGain);
+el.mute.addEventListener("change", () => {
+  if (masterGain && ctx) masterGain.gain.setTargetAtTime(masterTarget(), ctx.currentTime, 0.02);
+});
 
 // 切換輸出裝置時即時套用，不需要重啟
 el.outSel.addEventListener("change", async () => {
@@ -586,51 +836,49 @@ function dbToPct(db) {
   return Math.max(0, Math.min(100, (db + 60) / 60 * 100));
 }
 
+function rmsDbOf(analyser, buf) {
+  analyser.getFloatTimeDomainData(buf);
+  let sum = 0;
+  for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+  return 20 * Math.log10(Math.sqrt(sum / buf.length) || 1e-9);
+}
+
 function startMeter() {
-  const buf = new Float32Array(analyser.fftSize);
   const tick = (now) => {
-    if (!running || !analyser) return;
-    analyser.getFloatTimeDomainData(buf);
+    if (!running || !masterAnalyser) return;
 
-    let sum = 0, peak = 0;
-    for (let i = 0; i < buf.length; i++) {
-      const v = buf[i];
-      sum += v * v;
-      const a = v < 0 ? -v : v;
-      if (a > peak) peak = a;
+    for (const [id, mic] of mics) {
+      const r = rows.get(id);
+      if (r) r.fill.style.clipPath = "inset(0 " + (100 - dbToPct(rmsDbOf(mic.analyser, mic.buf))) + "% 0 0)";
     }
-    const rms = Math.sqrt(sum / buf.length);
-    const rmsDb = 20 * Math.log10(rms || 1e-9);
-    const peakDb = 20 * Math.log10(peak || 1e-9);
 
-    el.meterFill.style.clipPath = "inset(0 " + (100 - dbToPct(rmsDb)) + "% 0 0)";
+    const db = rmsDbOf(masterAnalyser, masterBuf);
+    el.meterFill.style.clipPath = "inset(0 " + (100 - dbToPct(db)) + "% 0 0)";
 
-    if (peakDb >= peakHold || now - peakAt > PEAK_HOLD_MS) { peakHold = peakDb; peakAt = now; }
+    if (db >= peakHold || now - peakAt > PEAK_HOLD_MS) { peakHold = db; peakAt = now; }
     el.meterPeak.style.left = dbToPct(peakHold) + "%";
-    el.dbVal.textContent = (rmsDb <= -59 ? "—" : rmsDb.toFixed(1) + " dB");
+    el.dbVal.textContent = db <= -59 ? "—" : db.toFixed(1) + " dB";
 
     rafId = requestAnimationFrame(tick);
   };
   rafId = requestAnimationFrame(tick);
 }
 
-function resetMeter() {
+function resetMeters() {
   el.meterFill.style.clipPath = "inset(0 100% 0 0)";
   el.meterPeak.style.left = "0%";
   el.dbVal.textContent = "—";
-  el.stRate.textContent = el.stCh.textContent = el.stLat.textContent = "—";
+  el.stMics.textContent = el.stRate.textContent = el.stLat.textContent = "—";
+  for (const [, r] of rows) r.fill.style.clipPath = "inset(0 100% 0 0)";
   peakHold = 0;
 }
 
 // ---- 統計 --------------------------------------------------------------
 function startStats() {
   const update = () => {
-    if (!ctx || !stream) return;
-    const track = stream.getAudioTracks()[0];
-    const s = track ? track.getSettings() : {};
-
-    el.stRate.textContent = ((s.sampleRate || ctx.sampleRate) / 1000).toFixed(1) + " kHz";
-    el.stCh.textContent = s.channelCount === 2 ? "立體聲" : (s.channelCount === 1 ? "單聲道" : "—");
+    if (!ctx) return;
+    el.stMics.textContent = mics.size + " 支";
+    el.stRate.textContent = (ctx.sampleRate / 1000).toFixed(1) + " kHz";
 
     // outputLatency 只有 Chrome 系提供；沒有時只算得出輸入端緩衝
     const base = ctx.baseLatency || 0;
