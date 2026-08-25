@@ -1,0 +1,20 @@
+{
+  "id": "./",
+  "name": "shareMic2Ear — 多路麥克風即時監聽",
+  "short_name": "shareMic2Ear",
+  "description": "在瀏覽器裡把一支或多支麥克風混音後即時導到指定的音訊輸出裝置，適合藍牙耳機監聽。",
+  "lang": "zh-Hant",
+  "dir": "ltr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "background_color": "#0e1116",
+  "theme_color": "#0e1116",
+  "categories": ["utilities", "music"],
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icons/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

@@ -1,6 +1,6 @@
 # shareMic2Ear
 
-在瀏覽器裡把一支或多支麥克風混音後，即時導到指定的音訊輸出裝置。單一 HTML 檔、零依賴、零建置，可直接部署到 GitHub Pages。
+在瀏覽器裡把一支或多支麥克風混音後，即時導到指定的音訊輸出裝置。零依賴、零建置，可安裝成 App、離線可用，直接部署到 GitHub Pages。
 
 **線上版本：** https://fripig.github.io/shareMic2Ear/
 
@@ -16,6 +16,7 @@
 - 混音輸出的音量表（RMS + peak hold）、麥克風數、取樣率、估計延遲
 - 關閉 `echoCancellation` / `noiseSuppression` / `autoGainControl`（預設全關，可切換）
 - 監聽裝置變化，藍牙連上或斷開時自動更新清單，運作中的裝置消失會自動移除
+- **PWA**：可安裝到主畫面以獨立視窗開啟，離線也打得開；有新版本時提示而不強制重新載入
 
 ## 音訊架構
 
@@ -37,6 +38,36 @@
 
 AnalyserNode 一律掛成旁路，不在主訊號路徑上，因此不增加延遲。
 
+## 安裝成 App（PWA）
+
+| 平台 | 怎麼裝 |
+|---|---|
+| Chrome / Edge（桌面） | 頁面上方會出現「可以安裝成 App」提示，按「安裝」；或用網址列右側的安裝圖示 |
+| Chrome（Android） | 同上，或從選單「加入主畫面」 |
+| Safari（iOS） | 分享選單 → 加入主畫面（iOS 不提供安裝提示 API，所以頁面上不會有安裝按鈕） |
+
+安裝後從主畫面開啟，沒有網址列，版面會自動避開瀏海與 home indicator。
+
+**離線**：Service Worker 會預先快取頁面、manifest 與圖示，沒網路一樣打得開。
+音訊處理本來就全在本機，離線不影響任何功能。
+
+**更新**：採 stale-while-revalidate——先用快取讓頁面立刻開啟，同時在背景抓新版。
+抓到新版時只會顯示「有新版本／重新載入」提示，**不會自動重新載入**，
+因為重新載入必然切斷正在進行的監聽。監聽中收到提示時，文案會提醒你方便再按。
+按下重新載入會先停止監聽釋放裝置，等新版 Service Worker 接手後才重新載入。
+
+## 檔案結構
+
+```
+index.html               全部的 UI 與音訊邏輯，內嵌 CSS 與 JS
+sw.js                    Service Worker（離線快取與更新通知）
+manifest.webmanifest     PWA manifest，路徑全用相對路徑
+icons/                   192／512／maskable 512／apple-touch-icon
+```
+
+`sw.js` 必須是獨立檔案（Service Worker 無法內嵌），其餘一樣沒有建置流程。
+manifest 與快取清單都用相對路徑，因此部署在 GitHub Pages 的子路徑下也正確。
+
 ## 部署到 GitHub Pages
 
 ```bash
@@ -50,7 +81,8 @@ git push -u origin main
 
 ## 本機測試
 
-`getUserMedia` 需要安全context。`localhost` 被視為安全，直接開檔案（`file://`）則不行：
+`getUserMedia` 與 Service Worker 都需要安全內容。`localhost` 被視為安全，
+直接開檔案（`file://`）則不行——PWA 的部分會安靜跳過，其餘功能仍可運作：
 
 ```bash
 python3 -m http.server 8000
