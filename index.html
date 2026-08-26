@@ -4,7 +4,7 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>shareMic2Ear — 多路麥克風即時監聽</title>
-<meta name="description" content="在瀏覽器裡把一支或多支麥克風混音後即時導到指定的音訊輸出裝置，適合藍牙耳機監聽。">
+<meta name="description" id="metaDesc" content="在瀏覽器裡把一支或多支麥克風混音後即時導到指定的音訊輸出裝置，適合藍牙耳機監聽。">
 
 <!-- PWA：路徑一律相對，才能部署在 GitHub Pages 的子路徑下 -->
 <link rel="manifest" href="manifest.webmanifest">
@@ -79,6 +79,19 @@ h1{font-size:1.35rem;margin:0;letter-spacing:-.01em}
 .status.live{color:var(--accent);border-color:var(--accent-dim)}
 @keyframes pulse{to{box-shadow:0 0 0 7px transparent}}
 @media (prefers-reduced-motion:reduce){.status.live .dot{animation:none}}
+
+/* 語言切換：跟狀態徽章同一列，靠右 */
+.langsw{
+  display:flex;flex:none;margin-left:auto;align-self:center;
+  border:1px solid var(--border);border-radius:99px;overflow:hidden;
+}
+.langsw button{
+  border:none;border-radius:0;background:transparent;color:var(--muted);
+  padding:3px 11px;font-size:.75rem;line-height:1.5;
+}
+.langsw button:hover:not([aria-pressed="true"]){color:var(--text)}
+.langsw button[aria-pressed="true"]{background:var(--surface-2);color:var(--text)}
+.langsw button:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 
 section{
   background:var(--surface);
@@ -255,25 +268,29 @@ a{color:var(--accent)}
 <header>
   <h1>shareMic2Ear</h1>
   <span class="status" id="status"><span class="dot"></span><span id="statusText">未啟動</span></span>
+  <div class="langsw" id="langSw" role="group" aria-label="Language / 語言">
+    <button type="button" data-lang="zh-Hant" aria-pressed="false">中文</button>
+    <button type="button" data-lang="en" aria-pressed="false">EN</button>
+  </div>
 </header>
-<p class="sub">把一支或多支麥克風混音後，即時導到指定的音訊輸出裝置。</p>
+<p class="sub" data-i18n="app.sub">把一支或多支麥克風混音後，即時導到指定的音訊輸出裝置。</p>
 
 <div class="note err" id="fatal" hidden></div>
 
 <div class="note appnote" id="installNote" hidden>
-  <span class="txt"><b>可以安裝成 App。</b>從主畫面開啟，沒有網址列，離線也打得開。</span>
-  <button id="btnInstall">安裝</button>
+  <span class="txt" data-i18n-html="install.text"><b>可以安裝成 App。</b>從主畫面開啟，沒有網址列，離線也打得開。</span>
+  <button id="btnInstall" data-i18n="install.btn">安裝</button>
 </div>
 
 <div class="note appnote" id="swUpdate" hidden>
-  <span class="txt"><b>有新版本。</b><span id="swUpdateHint">重新載入即可套用。</span></span>
-  <button id="btnReload">重新載入</button>
+  <span class="txt"><span data-i18n-html="update.text"><b>有新版本。</b></span><span id="swUpdateHint">重新載入即可套用。</span></span>
+  <button id="btnReload" data-i18n="update.btn">重新載入</button>
 </div>
 
 <!-- 步驟 1：權限 -->
 <section id="permSec">
-  <h2>步驟 1 · 麥克風權限</h2>
-  <p class="note" style="margin-bottom:12px">
+  <h2 data-i18n="step1.title">步驟 1 · 麥克風權限</h2>
+  <p class="note" style="margin-bottom:12px" data-i18n="step1.note">
     瀏覽器在授權前不會透露裝置名稱，所有裝置都會顯示成空白。請先授權，才能看到藍牙耳機等裝置的名字。
   </p>
   <button class="primary" id="btnPerm">允許使用麥克風</button>
@@ -282,26 +299,26 @@ a{color:var(--accent)}
 <!-- 步驟 2：輸入 -->
 <section id="inSec" hidden>
   <h2>
-    <span>步驟 2 · 輸入（可多選）</span>
+    <span data-i18n="step2.title">步驟 2 · 輸入（可多選）</span>
     <span class="h2-tools">
-      <button class="ghost" id="btnAll">全選</button>
-      <button class="ghost" id="btnNone">清除</button>
-      <button class="ghost" id="btnRefresh">重新掃描</button>
+      <button class="ghost" id="btnAll" data-i18n="btn.all">全選</button>
+      <button class="ghost" id="btnNone" data-i18n="btn.none">清除</button>
+      <button class="ghost" id="btnRefresh" data-i18n="btn.refresh">重新掃描</button>
     </span>
   </h2>
 
   <div id="micList"></div>
 
-  <div class="note" id="multiNote" hidden style="margin-top:12px">
+  <div class="note" id="multiNote" hidden style="margin-top:12px" data-i18n-html="mic.multi">
     <b>同時使用多支麥克風時：</b>如果它們在同一個空間，會互相收到彼此的聲音，混音後產生梳狀濾波（聲音變空洞、有金屬感）。把用不到的那支靜音，或拉開距離可以改善。
   </div>
 </section>
 
 <!-- 步驟 3：輸出 -->
 <section id="outSec" hidden>
-  <h2>步驟 3 · 輸出</h2>
+  <h2 data-i18n="step3.title">步驟 3 · 輸出</h2>
   <label class="field" id="outField">
-    <span class="field-label"><span>耳機／喇叭</span><span class="hint" id="outMode"></span></span>
+    <span class="field-label"><span data-i18n="out.label">耳機／喇叭</span><span class="hint" id="outMode"></span></span>
     <select id="outSel"></select>
   </label>
   <div class="note" id="outNote" hidden style="margin-top:12px"></div>
@@ -309,88 +326,88 @@ a{color:var(--accent)}
 
 <!-- 步驟 4：監聽 -->
 <section id="monSec" hidden>
-  <h2>步驟 4 · 監聽</h2>
+  <h2 data-i18n="step4.title">步驟 4 · 監聽</h2>
 
-  <div class="note warn" style="margin-bottom:14px">
+  <div class="note warn" style="margin-bottom:14px" data-i18n-html="mon.warn">
     <b>先戴上耳機再開始。</b>用喇叭播放會讓麥克風收到自己的聲音，形成回授嘯叫。麥克風越多越嚴重。
   </div>
 
   <button class="primary" id="btnToggle">開始監聽</button>
 
   <label class="field" style="margin-top:16px">
-    <span class="field-label"><span>總音量</span><span class="hint" id="volVal">100%</span></span>
+    <span class="field-label"><span data-i18n="vol.master">總音量</span><span class="hint" id="volVal">100%</span></span>
     <input type="range" id="vol" min="0" max="400" step="1" value="100">
   </label>
 
   <div class="checks" style="margin-top:2px">
     <label class="check">
       <input type="checkbox" id="mute">
-      <span class="t">全部靜音</span>
+      <span class="t" data-i18n="chk.mute">全部靜音</span>
     </label>
     <label class="check">
       <input type="checkbox" id="comp">
-      <span class="t">人聲增強 <span class="tag">壓縮 + 8 dB</span>
-        <span class="d">壓低突然的尖峰、把安靜的部分推上來，整體聽起來明顯更大聲。即時生效，不需重新啟動。</span></span>
+      <span class="t"><span data-i18n="chk.comp">人聲增強</span> <span class="tag" data-i18n="chk.comp.tag">壓縮 + 8 dB</span>
+        <span class="d" data-i18n="chk.comp.desc">壓低突然的尖峰、把安靜的部分推上來，整體聽起來明顯更大聲。即時生效，不需重新啟動。</span></span>
     </label>
   </div>
 
   <div style="margin-top:16px">
-    <div class="field-label"><span style="font-size:.85rem">混音輸出</span><span class="hint" id="dbVal">—</span></div>
+    <div class="field-label"><span style="font-size:.85rem" data-i18n="meter.title">混音輸出</span><span class="hint" id="dbVal">—</span></div>
     <div class="meter"><div class="meter-fill" id="meterFill"></div><div class="meter-peak" id="meterPeak"></div></div>
     <div class="meter-scale"><span>-60</span><span>-40</span><span>-20</span><span>-6</span><span>0 dB</span></div>
     <div class="note warn" id="lowNote" hidden style="margin-top:10px"></div>
   </div>
 
   <dl class="stats">
-    <div class="stat"><dt>麥克風</dt><dd id="stMics">—</dd></div>
-    <div class="stat"><dt>取樣率</dt><dd id="stRate">—</dd></div>
-    <div class="stat"><dt>估計延遲</dt><dd id="stLat">—</dd></div>
+    <div class="stat"><dt data-i18n="stat.mics">麥克風</dt><dd id="stMics">—</dd></div>
+    <div class="stat"><dt data-i18n="stat.rate">取樣率</dt><dd id="stRate">—</dd></div>
+    <div class="stat"><dt data-i18n="stat.lat">估計延遲</dt><dd id="stLat">—</dd></div>
   </dl>
 </section>
 
 <!-- 進階 -->
 <section id="advSec" hidden>
-  <h2>音訊處理</h2>
-  <p class="note" style="margin-bottom:14px">
+  <h2 data-i18n="adv.title">音訊處理</h2>
+  <p class="note" style="margin-bottom:14px" data-i18n-html="adv.note">
     這三項預設<b>全部關閉</b>，並且會套用到每一支麥克風。它們是為了通話設計的：回音消除會把你自己的聲音判定成回音而削掉，做監聽時反而礙事。改動後需要重新啟動監聽才會生效。
   </p>
   <div class="checks">
     <label class="check">
       <input type="checkbox" id="ec">
-      <span class="t">回音消除 <span class="tag">echoCancellation</span>
-        <span class="d">只有在必須用喇叭外放時才開。會增加延遲。</span></span>
+      <span class="t"><span data-i18n="adv.ec">回音消除</span> <span class="tag">echoCancellation</span>
+        <span class="d" data-i18n="adv.ec.desc">只有在必須用喇叭外放時才開。會增加延遲。</span></span>
     </label>
     <label class="check">
       <input type="checkbox" id="ns">
-      <span class="t">雜訊抑制 <span class="tag">noiseSuppression</span>
-        <span class="d">壓背景噪音，代價是人聲細節與音質。</span></span>
+      <span class="t"><span data-i18n="adv.ns">雜訊抑制</span> <span class="tag">noiseSuppression</span>
+        <span class="d" data-i18n="adv.ns.desc">壓背景噪音，代價是人聲細節與音質。</span></span>
     </label>
     <label class="check">
       <input type="checkbox" id="agc">
-      <span class="t">自動增益 <span class="tag">autoGainControl</span>
-        <span class="d">自動調整音量，會讓安靜時的底噪被推大。</span></span>
+      <span class="t"><span data-i18n="adv.agc">自動增益</span> <span class="tag">autoGainControl</span>
+        <span class="d" data-i18n="adv.agc.desc">自動調整音量，會讓安靜時的底噪被推大。</span></span>
     </label>
   </div>
 </section>
 
 <footer>
-  <b>多支麥克風</b>
+  <b data-i18n="foot.multi.title">多支麥克風</b>
   <ul>
-    <li>監聽進行中也可以隨時勾選或取消麥克風，不必停止重來。每支都有獨立的音量與靜音。</li>
-    <li>同時開多支<b>藍牙</b>麥克風容易撞到頻寬與驅動限制，可能有裝置開不起來或聲音斷續。建議一次只用一支藍牙輸入。</li>
-    <li>若某支麥克風啟用失敗，其餘的會繼續運作，該列會標示錯誤原因。</li>
+    <li data-i18n-html="foot.multi.1">監聽進行中也可以隨時勾選或取消麥克風，不必停止重來。每支都有獨立的音量與靜音。</li>
+    <li data-i18n-html="foot.multi.2">同時開多支<b>藍牙</b>麥克風容易撞到頻寬與驅動限制，可能有裝置開不起來或聲音斷續。建議一次只用一支藍牙輸入。</li>
+    <li data-i18n-html="foot.multi.3">若某支麥克風啟用失敗，其餘的會繼續運作，該列會標示錯誤原因。</li>
   </ul>
-  <b>關於藍牙</b>
+  <b data-i18n="foot.bt.title">關於藍牙</b>
   <ul>
-    <li>網頁<b>無法配對</b>藍牙裝置。配對請到系統設定完成，這裡只會列出已連線的裝置。標示 <span class="tag">藍牙?</span> 是依裝置名稱推測，不保證準確。</li>
-    <li>藍牙耳機一旦被當成<b>麥克風</b>使用，會從 A2DP 切換到 HFP 模式：取樣率掉到 16 kHz 以下、立體聲變單聲道。這是藍牙協定的限制，任何網頁都改不了。想要好音質，建議輸入用有線或內建麥克風，只有輸出走藍牙。</li>
-    <li>藍牙本身有 100–300 ms 的傳輸延遲，即時監聽會明顯聽到延遲。要真正低延遲請用有線耳機。</li>
-    <li>裝置插拔或藍牙連線變化時清單會自動更新。</li>
+    <li data-i18n-html="foot.bt.1">網頁<b>無法配對</b>藍牙裝置。配對請到系統設定完成，這裡只會列出已連線的裝置。標示 <span class="tag">藍牙?</span> 是依裝置名稱推測，不保證準確。</li>
+    <li data-i18n-html="foot.bt.2">藍牙耳機一旦被當成<b>麥克風</b>使用，會從 A2DP 切換到 HFP 模式：取樣率掉到 16 kHz 以下、立體聲變單聲道。這是藍牙協定的限制，任何網頁都改不了。想要好音質，建議輸入用有線或內建麥克風，只有輸出走藍牙。</li>
+    <li data-i18n-html="foot.bt.3">藍牙本身有 100–300 ms 的傳輸延遲，即時監聽會明顯聽到延遲。要真正低延遲請用有線耳機。</li>
+    <li data-i18n-html="foot.bt.4">裝置插拔或藍牙連線變化時清單會自動更新。</li>
   </ul>
 </footer>
 
 <details class="diag">
-  <summary>診斷資訊（回報問題時請附上）</summary>
+  <summary data-i18n="diag.summary">診斷資訊（回報問題時請附上）</summary>
   <pre id="diagBody">—</pre>
 </details>
 
@@ -414,7 +431,339 @@ const el = {
   ec:$("ec"), ns:$("ns"), agc:$("agc"),
   installNote:$("installNote"), btnInstall:$("btnInstall"),
   swUpdate:$("swUpdate"), swUpdateHint:$("swUpdateHint"), btnReload:$("btnReload"),
+  langSw:$("langSw"), metaDesc:$("metaDesc"),
 };
+
+// ---- 多語系 ------------------------------------------------------------
+// 只有兩種語言，直接內嵌字典：這是單檔應用，額外抓 JSON 會多一次網路往返，
+// 也會讓離線快取多一個要顧的檔案。
+const STRINGS = {
+  "zh-Hant": {
+    "meta.title": "shareMic2Ear — 多路麥克風即時監聽",
+    "meta.desc": "在瀏覽器裡把一支或多支麥克風混音後即時導到指定的音訊輸出裝置，適合藍牙耳機監聽。",
+    "app.sub": "把一支或多支麥克風混音後，即時導到指定的音訊輸出裝置。",
+
+    "status.idle": "未啟動",
+    "status.ready": "待命",
+    "status.starting": "啟動中…",
+    "status.live": "監聽中",
+
+    "install.text": "<b>可以安裝成 App。</b>從主畫面開啟，沒有網址列，離線也打得開。",
+    "install.btn": "安裝",
+    "update.text": "<b>有新版本。</b>",
+    "update.btn": "重新載入",
+    "update.hint.idle": "重新載入即可套用。",
+    "update.hint.live": "重新載入會中斷目前的監聽，方便的時候再按。",
+
+    "step1.title": "步驟 1 · 麥克風權限",
+    "step1.note": "瀏覽器在授權前不會透露裝置名稱，所有裝置都會顯示成空白。請先授權，才能看到藍牙耳機等裝置的名字。",
+    "step1.btn": "允許使用麥克風",
+    "step1.btn.busy": "等待授權…",
+
+    "step2.title": "步驟 2 · 輸入（可多選）",
+    "btn.all": "全選",
+    "btn.none": "清除",
+    "btn.refresh": "重新掃描",
+    "mic.empty": "找不到任何麥克風裝置。",
+    "mic.fallback": "麥克風 {n}",
+    "mic.vol.aria": "此麥克風的音量",
+    "mic.mute": "靜音",
+    "mic.muted": "已靜音",
+    "mic.state.on": "連線中",
+    "mic.state.busy": "被佔用",
+    "mic.state.fail": "失敗",
+    "mic.multi": "<b>同時使用多支麥克風時：</b>如果它們在同一個空間，會互相收到彼此的聲音，混音後產生梳狀濾波（聲音變空洞、有金屬感）。把用不到的那支靜音，或拉開距離可以改善。",
+
+    "step3.title": "步驟 3 · 輸出",
+    "out.label": "耳機／喇叭",
+    "out.mode.low": "低延遲",
+    "out.mode.compat": "相容模式",
+    "out.mode.none": "不支援",
+    "out.empty": "找不到輸出裝置",
+    "out.fallback": "輸出 {n}",
+    "tag.bt": "藍牙?",
+    "tag.bt.inline": "⟨藍牙?⟩",
+    "out.note.element": "這個瀏覽器不支援直接切換音訊輸出，改走 <code>&lt;audio&gt;</code> 元素轉送。功能正常，但會多出約 20-100 ms 延遲。",
+    "out.note.android": "<b>Android 版 Chrome 不支援由網頁選擇輸出裝置</b>（<code>setSinkId</code> 只在桌面版提供），聲音會送到系統目前的媒體輸出。要改用藍牙耳機：先在系統設定連上耳機，再從通知列下拉，點媒體通知右上角的<b>輸出／投放圖示</b>切換。<br><br>另外請注意，Android 在網頁使用麥克風時會把音訊視為<b>通訊用途</b>，藍牙耳機會走 HFP 模式（音質降低），也可能被強制路由到聽筒或喇叭。若聽到嘯叫，代表聲音走了喇叭，請調低音量並確認耳機已接上。",
+    "out.note.ios": "<b>iOS 不支援由網頁選擇輸出裝置</b>，聲音只會送到系統目前的輸出。請從控制中心的音訊卡片切換到你的藍牙耳機。",
+    "out.note.safari": "<b>Safari 不支援 <code>setSinkId</code></b>，無法由網頁指定輸出裝置。聲音會送到系統預設輸出，請到系統設定切換耳機，或改用 Chrome / Edge。",
+    "out.note.nosink": "<b>這個瀏覽器不支援 <code>setSinkId</code></b>，無法由網頁指定輸出裝置。聲音會送到系統預設輸出，請到系統設定切換耳機。",
+    "out.note.nodevices": "<b>瀏覽器支援切換輸出，但沒有列出任何輸出裝置。</b>行動裝置通常不開放這項資訊。聲音會送到系統目前的輸出，請從系統層切換耳機。",
+
+    "step4.title": "步驟 4 · 監聽",
+    "mon.warn": "<b>先戴上耳機再開始。</b>用喇叭播放會讓麥克風收到自己的聲音，形成回授嘯叫。麥克風越多越嚴重。",
+    "btn.start": "開始監聽",
+    "btn.stop": "停止監聽",
+    "vol.master": "總音量",
+    "chk.mute": "全部靜音",
+    "chk.comp": "人聲增強",
+    "chk.comp.tag": "壓縮 + 8 dB",
+    "chk.comp.desc": "壓低突然的尖峰、把安靜的部分推上來，整體聽起來明顯更大聲。即時生效，不需重新啟動。",
+    "meter.title": "混音輸出",
+    "stat.mics": "麥克風",
+    "stat.mics.val": "{n} 支",
+    "stat.rate": "取樣率",
+    "stat.lat": "估計延遲",
+    "stat.lat.atleast": " 起",
+
+    "low.silent": "<b>幾乎沒有收到聲音。</b>確認麥克風沒有被系統靜音、實體開關沒關，並檢查系統設定裡該裝置的輸入音量。",
+    "low.quiet": "<b>輸入電平偏低。</b>依序試試：勾選上面的「人聲增強」、把總音量往右拉、到「音訊處理」開啟<b>自動增益</b>後重新啟動監聽，或直接調高系統設定裡的麥克風輸入音量。",
+
+    "adv.title": "音訊處理",
+    "adv.note": "這三項預設<b>全部關閉</b>，並且會套用到每一支麥克風。它們是為了通話設計的：回音消除會把你自己的聲音判定成回音而削掉，做監聽時反而礙事。改動後需要重新啟動監聽才會生效。",
+    "adv.ec": "回音消除",
+    "adv.ec.desc": "只有在必須用喇叭外放時才開。會增加延遲。",
+    "adv.ns": "雜訊抑制",
+    "adv.ns.desc": "壓背景噪音，代價是人聲細節與音質。",
+    "adv.agc": "自動增益",
+    "adv.agc.desc": "自動調整音量，會讓安靜時的底噪被推大。",
+
+    "foot.multi.title": "多支麥克風",
+    "foot.multi.1": "監聽進行中也可以隨時勾選或取消麥克風，不必停止重來。每支都有獨立的音量與靜音。",
+    "foot.multi.2": "同時開多支<b>藍牙</b>麥克風容易撞到頻寬與驅動限制，可能有裝置開不起來或聲音斷續。建議一次只用一支藍牙輸入。",
+    "foot.multi.3": "若某支麥克風啟用失敗，其餘的會繼續運作，該列會標示錯誤原因。",
+    "foot.bt.title": "關於藍牙",
+    "foot.bt.1": "網頁<b>無法配對</b>藍牙裝置。配對請到系統設定完成，這裡只會列出已連線的裝置。標示 <span class=\"tag\">藍牙?</span> 是依裝置名稱推測，不保證準確。",
+    "foot.bt.2": "藍牙耳機一旦被當成<b>麥克風</b>使用，會從 A2DP 切換到 HFP 模式：取樣率掉到 16 kHz 以下、立體聲變單聲道。這是藍牙協定的限制，任何網頁都改不了。想要好音質，建議輸入用有線或內建麥克風，只有輸出走藍牙。",
+    "foot.bt.3": "藍牙本身有 100–300 ms 的傳輸延遲，即時監聽會明顯聽到延遲。要真正低延遲請用有線耳機。",
+    "foot.bt.4": "裝置插拔或藍牙連線變化時清單會自動更新。",
+
+    "diag.summary": "診斷資訊（回報問題時請附上）",
+    "diag.page": "頁面",
+    "diag.secure": "安全連線",
+    "diag.route": "輸出路徑",
+    "diag.platform": "偵測平台",
+    "diag.platform.desktop": "桌面／其他",
+    "diag.display": "顯示模式",
+    "diag.sw": "Service Worker",
+    "diag.sw.unsupported": "不支援",
+    "diag.sw.insecure": "非安全連線，未註冊",
+    "diag.sw.active": "運作中",
+    "diag.sw.registered": "已註冊，尚未接手",
+    "diag.sw.pending": "（有更新待套用）",
+    "diag.devices": "裝置數",
+    "diag.devices.val": "輸入 {i} ／ 輸出 {o}",
+    "diag.rate": "取樣率",
+    "diag.rate.idle": "（尚未啟動）",
+    "diag.ua": "UA",
+
+    "err.unsupported": "<b>這個瀏覽器不支援必要的音訊 API。</b>請改用 Chrome、Edge、Firefox 或 Safari 的近期版本。",
+    "err.https": "<b>需要 HTTPS。</b>瀏覽器只在安全連線下開放麥克風，請透過 https:// 或 localhost 開啟本頁。",
+    "err.gum": "<b>無法取得麥克風。</b>{why}",
+    "err.gum.denied": "你拒絕了授權，或瀏覽器設定封鎖了此網站的麥克風。請點網址列的鎖頭圖示重新開放。",
+    "err.gum.notfound": "找不到任何麥克風裝置。",
+    "err.enumerate": "<b>無法列出裝置。</b>{msg}",
+    "err.nomic": "<b>請先勾選至少一支麥克風。</b>",
+    "err.start": "<b>無法開始監聽。</b>{why}",
+    "err.partial.one": "<b>有 1 支麥克風啟用失敗</b>，其餘已正常運作。詳細原因見該裝置右側標示。",
+    "err.partial.many": "<b>有 {n} 支麥克風啟用失敗</b>，其餘已正常運作。詳細原因見各裝置右側標示。",
+    "err.sink": "<b>切換輸出裝置失敗。</b>{msg}",
+    "err.none": "沒有任何麥克風啟用成功",
+    "err.notallowed": "麥克風權限被拒。",
+    "err.notfound": "選定的裝置已不存在，請重新掃描後再試。",
+    "err.notreadable": "裝置被其他程式佔用，或系統拒絕存取。",
+    "err.generic": "錯誤：{msg}",
+  },
+
+  "en": {
+    "meta.title": "shareMic2Ear — multi-mic live monitoring",
+    "meta.desc": "Mix one or more microphones in the browser and route them live to a chosen audio output device — handy for monitoring through Bluetooth headphones.",
+    "app.sub": "Mix one or more microphones and route them live to the audio output device you pick.",
+
+    "status.idle": "Not running",
+    "status.ready": "Ready",
+    "status.starting": "Starting…",
+    "status.live": "Monitoring",
+
+    "install.text": "<b>You can install this as an app.</b> Launch it from your home screen — no address bar, works offline.",
+    "install.btn": "Install",
+    "update.text": "<b>A new version is available.</b>",
+    "update.btn": "Reload",
+    "update.hint.idle": "Reload to apply it.",
+    "update.hint.live": "Reloading will cut off the current session — do it whenever it suits you.",
+
+    "step1.title": "Step 1 · Microphone permission",
+    "step1.note": "Browsers hide device names until you grant permission, so every device shows up blank. Grant it first to see names like your Bluetooth headset.",
+    "step1.btn": "Allow microphone",
+    "step1.btn.busy": "Waiting for permission…",
+
+    "step2.title": "Step 2 · Inputs (pick any number)",
+    "btn.all": "Select all",
+    "btn.none": "Clear",
+    "btn.refresh": "Rescan",
+    "mic.empty": "No microphone devices found.",
+    "mic.fallback": "Microphone {n}",
+    "mic.vol.aria": "Volume for this microphone",
+    "mic.mute": "Mute",
+    "mic.muted": "Muted",
+    "mic.state.on": "live",
+    "mic.state.busy": "in use",
+    "mic.state.fail": "failed",
+    "mic.multi": "<b>When several microphones run at once:</b> if they share a room they pick each other up, and mixing them causes comb filtering (a hollow, metallic sound). Mute the one you don't need, or move them further apart.",
+
+    "step3.title": "Step 3 · Output",
+    "out.label": "Headphones / speakers",
+    "out.mode.low": "low latency",
+    "out.mode.compat": "compat mode",
+    "out.mode.none": "unsupported",
+    "out.empty": "No output devices found",
+    "out.fallback": "Output {n}",
+    "tag.bt": "BT?",
+    "tag.bt.inline": "⟨BT?⟩",
+    "out.note.element": "This browser cannot switch the audio output directly, so the mix is routed through an <code>&lt;audio&gt;</code> element instead. It works, but adds roughly 20-100 ms of latency.",
+    "out.note.android": "<b>Chrome on Android does not let a web page choose the output device</b> (<code>setSinkId</code> is desktop-only), so audio goes to whatever the system currently uses for media. To use Bluetooth headphones: connect them in system settings, then pull down the notification shade and tap the <b>output / cast icon</b> on the media notification.<br><br>Also note that Android treats web-page microphone use as a <b>communication</b> stream, so Bluetooth headsets switch to HFP mode (lower quality) and audio may be forced to the earpiece or speaker. Howling means the sound is going through the speaker — turn the volume down and check that your headphones are connected.",
+    "out.note.ios": "<b>iOS does not let a web page choose the output device</b>, so audio only goes to the current system output. Switch to your Bluetooth headphones from the audio card in Control Center.",
+    "out.note.safari": "<b>Safari does not support <code>setSinkId</code></b>, so a web page cannot pick the output device. Audio goes to the system default output — switch headphones in system settings, or use Chrome / Edge instead.",
+    "out.note.nosink": "<b>This browser does not support <code>setSinkId</code></b>, so a web page cannot pick the output device. Audio goes to the system default output — switch headphones in system settings.",
+    "out.note.nodevices": "<b>This browser supports output switching, but no output devices were listed.</b> Mobile devices usually withhold that information. Audio goes to the current system output, so switch headphones at the system level.",
+
+    "step4.title": "Step 4 · Monitoring",
+    "mon.warn": "<b>Put your headphones on before you start.</b> Playing through speakers lets each microphone hear itself, which creates feedback howl — and it gets worse with every extra microphone.",
+    "btn.start": "Start monitoring",
+    "btn.stop": "Stop monitoring",
+    "vol.master": "Master volume",
+    "chk.mute": "Mute everything",
+    "chk.comp": "Voice boost",
+    "chk.comp.tag": "compressor + 8 dB",
+    "chk.comp.desc": "Holds down sudden peaks and lifts the quiet parts, so everything sounds clearly louder. Takes effect immediately, no restart needed.",
+    "meter.title": "Mixed output",
+    "stat.mics": "Microphones",
+    "stat.mics.val": "{n}",
+    "stat.rate": "Sample rate",
+    "stat.lat": "Est. latency",
+    "stat.lat.atleast": "+",
+
+    "low.silent": "<b>Almost no sound is coming in.</b> Check that the microphone is not muted by the system, that any physical switch is on, and check that device's input level in system settings.",
+    "low.quiet": "<b>Input level is low.</b> Try these in order: tick “Voice boost” above, push the master volume up, turn on <b>automatic gain control</b> under “Audio processing” and restart monitoring, or simply raise the microphone input level in system settings.",
+
+    "adv.title": "Audio processing",
+    "adv.note": "All three are <b>off by default</b> and apply to every microphone. They are built for phone calls: echo cancellation treats your own voice as echo and strips it, which only gets in the way when monitoring. Restart monitoring for changes to take effect.",
+    "adv.ec": "Echo cancellation",
+    "adv.ec.desc": "Only turn this on if you must use speakers. It adds latency.",
+    "adv.ns": "Noise suppression",
+    "adv.ns.desc": "Suppresses background noise, at the cost of vocal detail and overall quality.",
+    "adv.agc": "Automatic gain control",
+    "adv.agc.desc": "Adjusts the volume for you, which also pushes up the noise floor during quiet passages.",
+
+    "foot.multi.title": "Multiple microphones",
+    "foot.multi.1": "You can tick or untick microphones while monitoring — no need to stop and start again. Each one has its own volume and mute.",
+    "foot.multi.2": "Running several <b>Bluetooth</b> microphones at once tends to hit bandwidth and driver limits: some devices may fail to open, or the audio may drop out. Stick to one Bluetooth input at a time.",
+    "foot.multi.3": "If one microphone fails to start, the rest keep running and that row shows the reason.",
+    "foot.bt.title": "About Bluetooth",
+    "foot.bt.1": "A web page <b>cannot pair</b> Bluetooth devices. Pair them in system settings; only connected devices are listed here. The <span class=\"tag\">BT?</span> tag is guessed from the device name and is not guaranteed to be right.",
+    "foot.bt.2": "Once a Bluetooth headset is used as a <b>microphone</b>, it switches from A2DP to HFP: the sample rate drops to 16 kHz or below and stereo collapses to mono. That is a limit of the Bluetooth protocol — no web page can work around it. For good quality, use a wired or built-in microphone for input and keep Bluetooth for output only.",
+    "foot.bt.3": "Bluetooth itself adds 100–300 ms of transmission delay, which is clearly audible when monitoring live. Use wired headphones if you need genuinely low latency.",
+    "foot.bt.4": "The list updates automatically when devices are plugged in, unplugged, or Bluetooth connections change.",
+
+    "diag.summary": "Diagnostics (please include when reporting a problem)",
+    "diag.page": "Page",
+    "diag.secure": "Secure context",
+    "diag.route": "Output route",
+    "diag.platform": "Detected platform",
+    "diag.platform.desktop": "desktop / other",
+    "diag.display": "Display mode",
+    "diag.sw": "Service Worker",
+    "diag.sw.unsupported": "unsupported",
+    "diag.sw.insecure": "insecure context, not registered",
+    "diag.sw.active": "active",
+    "diag.sw.registered": "registered, not yet controlling",
+    "diag.sw.pending": " (update pending)",
+    "diag.devices": "Devices",
+    "diag.devices.val": "in {i} / out {o}",
+    "diag.rate": "Sample rate",
+    "diag.rate.idle": "(not started)",
+    "diag.ua": "UA",
+
+    "err.unsupported": "<b>This browser lacks the audio APIs this page needs.</b> Please use a recent version of Chrome, Edge, Firefox or Safari.",
+    "err.https": "<b>HTTPS required.</b> Browsers only grant microphone access over a secure connection — open this page via https:// or localhost.",
+    "err.gum": "<b>Could not access the microphone.</b> {why}",
+    "err.gum.denied": "You denied the request, or the browser is blocking the microphone for this site. Click the lock icon in the address bar to allow it again.",
+    "err.gum.notfound": "No microphone devices found.",
+    "err.enumerate": "<b>Could not list devices.</b> {msg}",
+    "err.nomic": "<b>Select at least one microphone first.</b>",
+    "err.start": "<b>Could not start monitoring.</b> {why}",
+    "err.partial.one": "<b>One microphone failed to start</b>; the rest are running normally. See the label on that row for details.",
+    "err.partial.many": "<b>{n} microphones failed to start</b>; the rest are running normally. See the label on each row for details.",
+    "err.sink": "<b>Could not switch the output device.</b> {msg}",
+    "err.none": "No microphone started successfully",
+    "err.notallowed": "Microphone permission denied.",
+    "err.notfound": "The selected device no longer exists — rescan and try again.",
+    "err.notreadable": "The device is in use by another program, or the system denied access.",
+    "err.generic": "Error: {msg}",
+  },
+};
+
+const LANG_KEY = "sharemic2ear.lang";
+const FALLBACK_LANG = "en";
+
+function detectLang() {
+  let saved = null;
+  try { saved = localStorage.getItem(LANG_KEY); } catch (_) {}
+  if (saved && STRINGS[saved]) return saved;
+  // 任何中文變體都給繁體；其餘一律英文
+  const prefs = navigator.languages && navigator.languages.length
+    ? navigator.languages : [navigator.language || ""];
+  for (const p of prefs) {
+    if (/^zh/i.test(p)) return "zh-Hant";
+    if (/^[a-z]{2}/i.test(p)) return FALLBACK_LANG;
+  }
+  return FALLBACK_LANG;
+}
+
+let lang = detectLang();
+
+// t("key", {n: 3}) → 取字串並代入 {n} 之類的佔位符
+function t(key, vars) {
+  const table = STRINGS[lang] || STRINGS[FALLBACK_LANG];
+  let s = table[key];
+  if (s == null) s = (STRINGS[FALLBACK_LANG][key] != null ? STRINGS[FALLBACK_LANG][key] : key);
+  if (vars) {
+    for (const k in vars) s = s.split("{" + k + "}").join(String(vars[k]));
+  }
+  return s;
+}
+
+function applyLang(next) {
+  if (next && STRINGS[next]) lang = next;
+  try { localStorage.setItem(LANG_KEY, lang); } catch (_) {}
+
+  document.documentElement.lang = lang;
+  document.title = t("meta.title");
+  if (el.metaDesc) el.metaDesc.setAttribute("content", t("meta.desc"));
+
+  document.querySelectorAll("[data-i18n]").forEach((node) => {
+    node.textContent = t(node.getAttribute("data-i18n"));
+  });
+  document.querySelectorAll("[data-i18n-html]").forEach((node) => {
+    node.innerHTML = t(node.getAttribute("data-i18n-html"));
+  });
+
+  for (const b of el.langSw.querySelectorAll("button")) {
+    b.setAttribute("aria-pressed", String(b.dataset.lang === lang));
+  }
+
+  redrawDynamic();
+}
+
+// 由 JS 產生或依狀態變動的文字，切語言時要自己重畫一次
+function redrawDynamic() {
+  el.btnPerm.textContent = t(permBusy ? "step1.btn.busy" : "step1.btn");
+  el.btnToggle.textContent = t(running ? "btn.stop" : "btn.start");
+  el.statusText.textContent = t(statusKey);
+  refreshUpdateHint();
+  if (lastFatal) el.fatal.innerHTML = t(lastFatal.key, lastFatal.vars);
+  if (lowKey) el.lowNote.innerHTML = t(lowKey);
+  renderMics(lastIns);
+  if (sinkMode !== "none" && lastOuts.length) fillOutputs(lastOuts);
+  describeSink();
+  updateStats();
+  updateDiag();
+}
+
+el.langSw.addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-lang]");
+  if (btn) applyLang(btn.dataset.lang);
+});
 
 // ---- 能力偵測 ----------------------------------------------------------
 const AudioCtor = window.AudioContext || window.webkitAudioContext;
@@ -447,64 +796,84 @@ const mics = new Map();
 const selected = new Set();
 let rows = new Map(); // deviceId -> DOM 元素集合
 
+// 最後一次列舉到的裝置，切換語言時用來重畫清單，不必再問一次瀏覽器
+let lastIns = [], lastOuts = [];
+
 let ctx = null, masterGain = null, masterAnalyser = null, masterBuf = null;
 let outBus = null, compNode = null, makeupNode = null;
 let mediaDest = null, audioEl = null, rafId = null, statTimer = null;
 let running = false, peakHold = 0, peakAt = 0;
+let permBusy = false;
 // 滾動視窗內的最大電平，用來判斷輸入是不是一直太小聲
 let winMax = -99, winStart = 0;
+
+// 目前顯示中的文字都記成 key，切語言才能重畫
+let statusKey = "status.idle";
+let lastFatal = null;   // { key, vars }
+let lowKey = null;
 
 // PWA 狀態（實作在檔案最後）：宣告放這裡，setStatus 才不會踩到 TDZ
 let waitingSW = null;      // 已安裝、等著接手的新版 Service Worker
 let updateReady = false;
 let installPrompt = null;  // Chrome 系的 beforeinstallprompt 事件
 
-function setStatus(text, live) {
-  el.statusText.textContent = text;
+function setStatus(key, live) {
+  statusKey = key;
+  el.statusText.textContent = t(key);
   el.status.classList.toggle("live", !!live);
   // 監聽狀態會影響「要不要現在重新載入」的措辭
   refreshUpdateHint();
 }
-function fatal(msg) {
-  el.fatal.innerHTML = msg;
+function fatal(key, vars) {
+  lastFatal = { key: key, vars: vars || null };
+  el.fatal.innerHTML = t(key, vars);
   el.fatal.hidden = false;
+}
+function clearFatal() {
+  lastFatal = null;
+  el.fatal.hidden = true;
 }
 
 // ---- 環境檢查 ----------------------------------------------------------
 if (!has.gum || !has.audio) {
-  fatal("<b>這個瀏覽器不支援必要的音訊 API。</b>請改用 Chrome、Edge、Firefox 或 Safari 的近期版本。");
+  fatal("err.unsupported");
   el.btnPerm.disabled = true;
 } else if (!window.isSecureContext) {
-  fatal("<b>需要 HTTPS。</b>瀏覽器只在安全連線下開放麥克風，請透過 https:// 或 localhost 開啟本頁。");
+  fatal("err.https");
   el.btnPerm.disabled = true;
 }
 
 // ---- 步驟 1：取得權限 ---------------------------------------------------
 el.btnPerm.addEventListener("click", async () => {
   el.btnPerm.disabled = true;
-  el.btnPerm.textContent = "等待授權…";
+  permBusy = true;
+  el.btnPerm.textContent = t("step1.btn.busy");
   try {
     // 只為了解鎖裝置名稱，拿到就立刻釋放
     const probe = await navigator.mediaDevices.getUserMedia({ audio: true });
-    probe.getTracks().forEach(t => t.stop());
+    probe.getTracks().forEach(tr => tr.stop());
 
+    permBusy = false;
     el.permSec.hidden = true;
     el.inSec.hidden = el.outSec.hidden = el.monSec.hidden = el.advSec.hidden = false;
-    setStatus("待命");
+    setStatus("status.ready");
     await refreshDevices(true);
 
     navigator.mediaDevices.addEventListener("devicechange", () => refreshDevices(false));
   } catch (err) {
+    permBusy = false;
     el.btnPerm.disabled = false;
-    el.btnPerm.textContent = "允許使用麥克風";
-    const why = err && err.name === "NotAllowedError"
-      ? "你拒絕了授權，或瀏覽器設定封鎖了此網站的麥克風。請點網址列的鎖頭圖示重新開放。"
-      : err && err.name === "NotFoundError"
-      ? "找不到任何麥克風裝置。"
-      : "錯誤：" + (err && err.message ? err.message : String(err));
-    fatal("<b>無法取得麥克風。</b>" + why);
+    el.btnPerm.textContent = t("step1.btn");
+    const why = err && err.name === "NotAllowedError" ? t("err.gum.denied")
+      : err && err.name === "NotFoundError" ? t("err.gum.notfound")
+      : t("err.generic", { msg: errText(err) });
+    fatal("err.gum", { why: why });
   }
 });
+
+function errText(err) {
+  return err && err.message ? err.message : String(err);
+}
 
 // ---- 裝置清單 ----------------------------------------------------------
 // 依名稱猜測是否為藍牙裝置。純字串比對，沒有更可靠的 Web API 可用。
@@ -515,7 +884,7 @@ async function refreshDevices(firstRun) {
   try {
     list = await navigator.mediaDevices.enumerateDevices();
   } catch (err) {
-    fatal("<b>無法列出裝置。</b>" + (err && err.message ? err.message : String(err)));
+    fatal("err.enumerate", { msg: errText(err) });
     return;
   }
 
@@ -529,9 +898,11 @@ async function refreshDevices(firstRun) {
   for (const id of [...selected]) if (!alive.has(id)) selected.delete(id);
   for (const id of [...mics.keys()]) if (!alive.has(id)) removeMic(id);
 
+  lastIns = ins;
   renderMics(ins);
 
   const outs = list.filter(d => d.kind === "audiooutput");
+  lastOuts = outs;
   outCount = outs.length;
   if (sinkMode !== "none" && outs.length) fillOutputs(outs);
 
@@ -540,11 +911,20 @@ async function refreshDevices(firstRun) {
 }
 
 function renderMics(devices) {
+  // 重畫會丟掉 DOM 上的錯誤標示（切語言、devicechange 都會走到這裡），先留下來
+  const prevErr = new Map();
+  for (const [id, r] of rows) {
+    if (r.row.classList.contains("err")) prevErr.set(id, { key: r.state.dataset.key, title: r.state.title });
+  }
+
   el.micList.innerHTML = "";
   rows = new Map();
 
   if (!devices.length) {
-    el.micList.innerHTML = '<p class="empty">找不到任何麥克風裝置。</p>';
+    const p = document.createElement("p");
+    p.className = "empty";
+    p.textContent = t("mic.empty");
+    el.micList.appendChild(p);
     updateMultiNote();
     return;
   }
@@ -565,11 +945,11 @@ function renderMics(devices) {
 
     const name = document.createElement("span");
     name.className = "mic-name";
-    name.textContent = d.label || ("麥克風 " + (i + 1));
+    name.textContent = d.label || t("mic.fallback", { n: i + 1 });
     if (isBT) {
       const tag = document.createElement("span");
       tag.className = "tag";
-      tag.textContent = "藍牙?";
+      tag.textContent = t("tag.bt");
       name.append(" ", tag);
     }
 
@@ -591,7 +971,7 @@ function renderMics(devices) {
     vol.type = "range";
     vol.min = 0; vol.max = 400; vol.step = 1;
     vol.value = live ? Math.round(live.vol * 100) : 100;
-    vol.setAttribute("aria-label", "此麥克風的音量");
+    vol.setAttribute("aria-label", t("mic.vol.aria"));
 
     const pct = document.createElement("span");
     pct.className = "mic-pct";
@@ -600,7 +980,7 @@ function renderMics(devices) {
     const muteBtn = document.createElement("button");
     muteBtn.className = "mic-mute";
     muteBtn.type = "button";
-    muteBtn.textContent = muted ? "已靜音" : "靜音";
+    muteBtn.textContent = t(muted ? "mic.muted" : "mic.mute");
     muteBtn.setAttribute("aria-pressed", String(muted));
 
     const meter = document.createElement("div");
@@ -643,10 +1023,18 @@ function renderMics(devices) {
     muteBtn.addEventListener("click", () => {
       const on = muteBtn.getAttribute("aria-pressed") !== "true";
       muteBtn.setAttribute("aria-pressed", String(on));
-      muteBtn.textContent = on ? "已靜音" : "靜音";
+      muteBtn.textContent = t(on ? "mic.muted" : "mic.mute");
       const m = mics.get(id);
       if (m) { m.muted = on; rampMic(m); }
     });
+
+    const err = prevErr.get(id);
+    if (err && !mics.has(id)) {
+      row.classList.add("err");
+      state.dataset.key = err.key || "";
+      state.textContent = err.key ? t(err.key) : "";
+      state.title = err.title || "";
+    }
 
     updateRowState(id);
   });
@@ -658,7 +1046,7 @@ function updateRowState(id) {
   const r = rows.get(id);
   if (!r) return;
   r.row.classList.toggle("on", mics.has(id));
-  if (mics.has(id)) r.state.textContent = "連線中";
+  if (mics.has(id)) r.state.textContent = t("mic.state.on");
   else if (!r.row.classList.contains("err")) r.state.textContent = "";
 }
 
@@ -670,7 +1058,9 @@ function fillOutputs(devices) {
   const prev = el.outSel.value;
   el.outSel.innerHTML = "";
   if (!devices.length) {
-    el.outSel.innerHTML = "<option>找不到輸出裝置</option>";
+    const o = document.createElement("option");
+    o.textContent = t("out.empty");
+    el.outSel.appendChild(o);
     el.outSel.disabled = true;
     return;
   }
@@ -678,7 +1068,8 @@ function fillOutputs(devices) {
   devices.forEach((d, i) => {
     const o = document.createElement("option");
     o.value = d.deviceId;
-    o.textContent = (d.label || ("輸出 " + (i + 1))) + (BT_HINT.test(d.label || "") ? "  ⟨藍牙?⟩" : "");
+    o.textContent = (d.label || t("out.fallback", { n: i + 1 }))
+      + (BT_HINT.test(d.label || "") ? "  " + t("tag.bt.inline") : "");
     el.outSel.appendChild(o);
   });
   if (prev && devices.some(d => d.deviceId === prev)) el.outSel.value = prev;
@@ -701,10 +1092,10 @@ function describeSink() {
   // 能選，而且真的有裝置可選
   if (sinkMode !== "none" && outCount) {
     if (sinkMode === "ctx") {
-      el.outMode.textContent = "低延遲";
+      el.outMode.textContent = t("out.mode.low");
     } else {
-      el.outMode.textContent = "相容模式";
-      show("note", "這個瀏覽器不支援直接切換音訊輸出，改走 <code>&lt;audio&gt;</code> 元素轉送。功能正常，但會多出約 20-100 ms 延遲。");
+      el.outMode.textContent = t("out.mode.compat");
+      show("note", "out.note.element");
     }
     return;
   }
@@ -712,70 +1103,50 @@ function describeSink() {
   // 到這裡就是選不了，把下拉收起來，改成說明為什麼、以及該去哪裡切換
   el.outField.hidden = true;
 
-  if (plat.android) {
-    show("warn",
-      "<b>Android 版 Chrome 不支援由網頁選擇輸出裝置</b>（<code>setSinkId</code> 只在桌面版提供），"
-      + "聲音會送到系統目前的媒體輸出。要改用藍牙耳機：先在系統設定連上耳機，"
-      + "再從通知列下拉，點媒體通知右上角的<b>輸出／投放圖示</b>切換。<br><br>"
-      + "另外請注意，Android 在網頁使用麥克風時會把音訊視為<b>通訊用途</b>，"
-      + "藍牙耳機會走 HFP 模式（音質降低），也可能被強制路由到聽筒或喇叭。"
-      + "若聽到嘯叫，代表聲音走了喇叭，請調低音量並確認耳機已接上。");
-  } else if (plat.ios) {
-    show("warn",
-      "<b>iOS 不支援由網頁選擇輸出裝置</b>，聲音只會送到系統目前的輸出。"
-      + "請從控制中心的音訊卡片切換到你的藍牙耳機。");
-  } else if (plat.safari) {
-    show("warn",
-      "<b>Safari 不支援 <code>setSinkId</code></b>，無法由網頁指定輸出裝置。"
-      + "聲音會送到系統預設輸出，請到系統設定切換耳機，或改用 Chrome / Edge。");
-  } else if (sinkMode === "none") {
-    show("warn",
-      "<b>這個瀏覽器不支援 <code>setSinkId</code></b>，無法由網頁指定輸出裝置。"
-      + "聲音會送到系統預設輸出，請到系統設定切換耳機。");
-  } else {
-    // 支援 API 卻列不出裝置，行動裝置與部分權限設定下會這樣
-    show("warn",
-      "<b>瀏覽器支援切換輸出，但沒有列出任何輸出裝置。</b>"
-      + "行動裝置通常不開放這項資訊。聲音會送到系統目前的輸出，請從系統層切換耳機。");
-  }
+  if (plat.android) show("warn", "out.note.android");
+  else if (plat.ios) show("warn", "out.note.ios");
+  else if (plat.safari) show("warn", "out.note.safari");
+  else if (sinkMode === "none") show("warn", "out.note.nosink");
+  // 支援 API 卻列不出裝置，行動裝置與部分權限設定下會這樣
+  else show("warn", "out.note.nodevices");
 
-  el.outMode.textContent = "不支援";
+  el.outMode.textContent = t("out.mode.none");
 
-  function show(kind, html) {
+  function show(kind, key) {
     el.outNote.hidden = false;
     el.outNote.className = "note" + (kind === "warn" ? " warn" : "");
-    el.outNote.innerHTML = html;
+    el.outNote.innerHTML = t(key);
   }
 }
 
 function updateDiag() {
   const tags = (plat.android ? "Android " : "") + (plat.ios ? "iOS " : "") +
                (plat.safari ? "Safari " : "");
-  const lines = [
-    "頁面        " + location.href,
-    "安全連線    " + window.isSecureContext,
-    "輸出路徑    " + sinkMode,
-    "  AudioContext.setSinkId       " + has.ctxSink,
-    "  HTMLMediaElement.setSinkId   " + has.elSink,
-    "偵測平台    " + (tags.trim() || "桌面／其他"),
-    "顯示模式    " + displayMode(),
-    "Service Worker " + swState(),
-    "裝置數      輸入 " + rows.size + " ／ 輸出 " + outCount,
-    "取樣率      " + (ctx ? ctx.sampleRate + " Hz" : "（尚未啟動）"),
-    "UA          " + ua,
+  const pairs = [
+    [t("diag.page"), location.href],
+    [t("diag.secure"), String(window.isSecureContext)],
+    [t("diag.route"), sinkMode],
+    ["  AudioContext.setSinkId", String(has.ctxSink)],
+    ["  HTMLMediaElement.setSinkId", String(has.elSink)],
+    [t("diag.platform"), tags.trim() || t("diag.platform.desktop")],
+    [t("diag.display"), displayMode()],
+    [t("diag.sw"), swState()],
+    [t("diag.devices"), t("diag.devices.val", { i: rows.size, o: outCount })],
+    [t("diag.rate"), ctx ? ctx.sampleRate + " Hz" : t("diag.rate.idle")],
+    [t("diag.ua"), ua],
   ];
-  el.diagBody.textContent = lines.join("\n");
+  el.diagBody.textContent = pairs.map(([k, v]) => k + ": " + v).join("\n");
 }
 
 // ---- 監聽開關 ----------------------------------------------------------
 el.btnToggle.addEventListener("click", () => running ? stop() : start());
 
 async function start() {
-  if (!selected.size) { fatal("<b>請先勾選至少一支麥克風。</b>"); return; }
+  if (!selected.size) { fatal("err.nomic"); return; }
 
   el.btnToggle.disabled = true;
-  el.fatal.hidden = true;
-  setStatus("啟動中…");
+  clearFatal();
+  setStatus("status.starting");
 
   try {
     // latencyHint:"interactive" 要求瀏覽器用最小的緩衝區
@@ -810,6 +1181,7 @@ async function start() {
 
     winMax = -99;
     winStart = performance.now();
+    lowKey = null;
     el.lowNote.hidden = true;
 
     await routeOutput();
@@ -821,19 +1193,19 @@ async function start() {
     const rejected = results.filter(r => r.status === "rejected");
     const failed = rejected.length;
 
-    if (!mics.size) throw failed ? rejected[0].reason : new Error("沒有任何麥克風啟用成功");
-    if (failed) fatal("<b>有 " + failed + " 支麥克風啟用失敗</b>，其餘已正常運作。詳細原因見各裝置右側標示。");
+    if (!mics.size) throw failed ? rejected[0].reason : new Error(t("err.none"));
+    if (failed) fatal(failed === 1 ? "err.partial.one" : "err.partial.many", { n: failed });
 
     startMeter();
     startStats();
 
-    el.btnToggle.textContent = "停止監聽";
+    el.btnToggle.textContent = t("btn.stop");
     el.btnToggle.classList.add("stop");
-    setStatus("監聽中", true);
+    setStatus("status.live", true);
   } catch (err) {
     await stop();
-    fatal("<b>無法開始監聽。</b>" + describeErr(err));
-    setStatus("未啟動");
+    fatal("err.start", { why: describeErr(err) });
+    setStatus("status.idle");
   } finally {
     el.btnToggle.disabled = false;
   }
@@ -841,10 +1213,10 @@ async function start() {
 
 function describeErr(err) {
   const name = err && err.name;
-  if (name === "NotAllowedError") return "麥克風權限被拒。";
-  if (name === "NotFoundError" || name === "OverconstrainedError") return "選定的裝置已不存在，請重新掃描後再試。";
-  if (name === "NotReadableError") return "裝置被其他程式佔用，或系統拒絕存取。";
-  return "錯誤：" + (err && err.message ? err.message : String(err));
+  if (name === "NotAllowedError") return t("err.notallowed");
+  if (name === "NotFoundError" || name === "OverconstrainedError") return t("err.notfound");
+  if (name === "NotReadableError") return t("err.notreadable");
+  return t("err.generic", { msg: errText(err) });
 }
 
 // 建立單支麥克風的音訊分支並接進總線
@@ -865,14 +1237,16 @@ async function addMic(id) {
   } catch (err) {
     if (r) {
       r.row.classList.add("err");
-      r.state.textContent = err && err.name === "NotReadableError" ? "被佔用" : "失敗";
+      // 切語言時要能重畫，所以把「顯示哪個字」記在 dataset 上
+      r.state.dataset.key = err && err.name === "NotReadableError" ? "mic.state.busy" : "mic.state.fail";
+      r.state.textContent = t(r.state.dataset.key);
       r.state.title = describeErr(err);
     }
     throw err;
   }
 
   // 啟用途中使用者可能已經取消勾選或按了停止
-  if (!running || !selected.has(id)) { stream.getTracks().forEach(t => t.stop()); return; }
+  if (!running || !selected.has(id)) { stream.getTracks().forEach(tr => tr.stop()); return; }
 
   const src = ctx.createMediaStreamSource(stream);
   const gain = ctx.createGain();
@@ -896,7 +1270,7 @@ async function addMic(id) {
   mics.set(id, mic);
   rampMic(mic, 0.12);
 
-  if (r) { r.row.classList.remove("err"); r.state.title = ""; }
+  if (r) { r.row.classList.remove("err"); r.state.dataset.key = ""; r.state.title = ""; }
   updateRowState(id);
 }
 
@@ -904,7 +1278,7 @@ function removeMic(id) {
   const mic = mics.get(id);
   if (!mic) return;
   mics.delete(id);
-  try { mic.stream.getTracks().forEach(t => t.stop()); } catch (_) {}
+  try { mic.stream.getTracks().forEach(tr => tr.stop()); } catch (_) {}
   [mic.src, mic.gain, mic.analyser].forEach(n => { try { n.disconnect(); } catch (_) {} });
   const r = rows.get(id);
   if (r) r.fill.style.clipPath = "inset(0 100% 0 0)";
@@ -925,9 +1299,9 @@ async function stop() {
 
   if (ctx) { try { await ctx.close(); } catch (_) {} ctx = null; }
 
-  el.btnToggle.textContent = "開始監聽";
+  el.btnToggle.textContent = t("btn.start");
   el.btnToggle.classList.remove("stop");
-  setStatus("待命");
+  setStatus("status.ready");
   resetMeters();
 }
 
@@ -999,7 +1373,7 @@ el.outSel.addEventListener("change", async () => {
     if (sinkMode === "ctx") await ctx.setSinkId(outId);
     else if (sinkMode === "element" && audioEl) await audioEl.setSinkId(outId);
   } catch (e) {
-    fatal("<b>切換輸出裝置失敗。</b>" + (e && e.message ? e.message : String(e)));
+    fatal("err.sink", { msg: errText(e) });
   }
 });
 
@@ -1044,6 +1418,7 @@ function resetMeters() {
   el.meterFill.style.clipPath = "inset(0 100% 0 0)";
   el.meterPeak.style.left = "0%";
   el.dbVal.textContent = "—";
+  lowKey = null;
   el.lowNote.hidden = true;
   el.stMics.textContent = el.stRate.textContent = el.stLat.textContent = "—";
   for (const [, r] of rows) r.fill.style.clipPath = "inset(0 100% 0 0)";
@@ -1059,13 +1434,25 @@ function checkLevel() {
   winMax = -99;
   winStart = performance.now();
 
-  if (!mics.size || max >= -35) { el.lowNote.hidden = true; return; }
+  if (!mics.size || max >= -35) { lowKey = null; el.lowNote.hidden = true; return; }
 
+  lowKey = max < -55 ? "low.silent" : "low.quiet";
   el.lowNote.hidden = false;
-  el.lowNote.innerHTML = max < -55
-    ? "<b>幾乎沒有收到聲音。</b>確認麥克風沒有被系統靜音、實體開關沒關，並檢查系統設定裡該裝置的輸入音量。"
-    : "<b>輸入電平偏低。</b>依序試試：勾選上面的「人聲增強」、把總音量往右拉、"
-      + "到「音訊處理」開啟<b>自動增益</b>後重新啟動監聽，或直接調高系統設定裡的麥克風輸入音量。";
+  el.lowNote.innerHTML = t(lowKey);
+}
+
+function updateStats() {
+  if (!ctx) return;
+  el.stMics.textContent = t("stat.mics.val", { n: mics.size });
+  el.stRate.textContent = (ctx.sampleRate / 1000).toFixed(1) + " kHz";
+
+  // outputLatency 只有 Chrome 系提供；沒有時只算得出輸入端緩衝
+  const base = ctx.baseLatency || 0;
+  const out = ctx.outputLatency || 0;
+  const ms = (base + out) * 1000;
+  el.stLat.textContent = ms > 0
+    ? "~" + ms.toFixed(0) + " ms" + (out ? "" : t("stat.lat.atleast"))
+    : "—";
 }
 
 function startStats() {
@@ -1073,14 +1460,7 @@ function startStats() {
     if (!ctx) return;
     checkLevel();
     updateDiag();
-    el.stMics.textContent = mics.size + " 支";
-    el.stRate.textContent = (ctx.sampleRate / 1000).toFixed(1) + " kHz";
-
-    // outputLatency 只有 Chrome 系提供；沒有時只算得出輸入端緩衝
-    const base = ctx.baseLatency || 0;
-    const out = ctx.outputLatency || 0;
-    const ms = (base + out) * 1000;
-    el.stLat.textContent = ms > 0 ? "~" + ms.toFixed(0) + " ms" + (out ? "" : " 起") : "—";
+    updateStats();
   };
   update();
   statTimer = setInterval(update, 1000);
@@ -1099,10 +1479,10 @@ function displayMode() {
 }
 
 function swState() {
-  if (!("serviceWorker" in navigator)) return "不支援";
-  if (!window.isSecureContext) return "非安全連線，未註冊";
+  if (!("serviceWorker" in navigator)) return t("diag.sw.unsupported");
+  if (!window.isSecureContext) return t("diag.sw.insecure");
   const c = navigator.serviceWorker.controller;
-  return (c ? "運作中" : "已註冊，尚未接手") + (updateReady ? "（有更新待套用）" : "");
+  return t(c ? "diag.sw.active" : "diag.sw.registered") + (updateReady ? t("diag.sw.pending") : "");
 }
 
 function showUpdate(waiting) {
@@ -1114,9 +1494,7 @@ function showUpdate(waiting) {
 
 function refreshUpdateHint() {
   if (!updateReady) return;
-  el.swUpdateHint.textContent = running
-    ? "重新載入會中斷目前的監聽，方便的時候再按。"
-    : "重新載入即可套用。";
+  el.swUpdateHint.textContent = t(running ? "update.hint.live" : "update.hint.idle");
 }
 
 if ("serviceWorker" in navigator && window.isSecureContext) {
@@ -1177,6 +1555,9 @@ window.addEventListener("appinstalled", () => {
   el.installNote.hidden = true;
   installPrompt = null;
 });
+
+// 所有函式都定義好之後才套語言，避免重畫時踩到還沒初始化的東西
+applyLang(lang);
 </script>
 </body>
 </html>

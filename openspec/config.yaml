@@ -19,7 +19,9 @@ context: |
   - 麥克風授權需要真人操作，音訊行為無法自動化測試，只能人工聽測。
     自動化涵蓋語法、HTML/JS 結構對照、純函式邏輯與部署一致性。
 
-  慣例：使用者介面文案一律繁體中文；commit 訊息英文。
+  慣例：使用者介面提供繁體中文與英文兩種語言，所有文案都必須同時寫進兩份字典
+  （字典內嵌於 index.html，見 localization 規格）；程式註解與 commit 訊息維持既有語言
+  （註解繁體中文、commit 訊息英文）。
 
 # Project context (optional)
 # This is shown to AI when creating artifacts.

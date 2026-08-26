@@ -17,6 +17,7 @@
 - 關閉 `echoCancellation` / `noiseSuppression` / `autoGainControl`（預設全關，可切換）
 - 監聽裝置變化，藍牙連上或斷開時自動更新清單，運作中的裝置消失會自動移除
 - **PWA**：可安裝到主畫面以獨立視窗開啟，離線也打得開；有新版本時提示而不強制重新載入
+- **繁體中文／English 介面**：依瀏覽器語言自動選擇，右上角可手動切換並記住選擇，監聽中切換不會中斷音訊
 
 ## 音訊架構
 
@@ -59,7 +60,7 @@ AnalyserNode 一律掛成旁路，不在主訊號路徑上，因此不增加延�
 ## 檔案結構
 
 ```
-index.html               全部的 UI 與音訊邏輯，內嵌 CSS 與 JS
+index.html               全部的 UI 與音訊邏輯，內嵌 CSS、JS 與中英文字典
 sw.js                    Service Worker（離線快取與更新通知）
 manifest.webmanifest     PWA manifest，路徑全用相對路徑
 icons/                   192／512／maskable 512／apple-touch-icon
